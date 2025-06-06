@@ -22,6 +22,7 @@ from azure.identity.aio import (
     ManagedIdentityCredential,
     get_bearer_token_provider,
 )
+from azure.core.credentials import AzureKeyCredential
 from azure.monitor.opentelemetry import configure_azure_monitor
 from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
 from azure.search.documents.aio import SearchClient
@@ -488,6 +489,7 @@ async def setup_clients():
     USE_CHAT_HISTORY_BROWSER = os.getenv("USE_CHAT_HISTORY_BROWSER", "").lower() == "true"
     USE_CHAT_HISTORY_COSMOS = os.getenv("USE_CHAT_HISTORY_COSMOS", "").lower() == "true"
     USE_AGENTIC_RETRIEVAL = os.getenv("USE_AGENTIC_RETRIEVAL", "").lower() == "true"
+    USE_AZURE_SEARCH_KEY = os.getenv("USE_AZURE_SEARCH_KEY", "").lower() == "true"
 
     # WEBSITE_HOSTNAME is always set by App Service, RUNNING_IN_PRODUCTION is set in main.bicep
     RUNNING_ON_AZURE = os.getenv("WEBSITE_HOSTNAME") is not None or os.getenv("RUNNING_IN_PRODUCTION") is not None
@@ -521,10 +523,16 @@ async def setup_clients():
     current_app.config[CONFIG_CREDENTIAL] = azure_credential
 
     # Set up clients for AI Search and Storage
+    azure_search_credential: Union[AzureKeyCredential,AzureDeveloperCliCredential,ManagedIdentityCredential]
+    if USE_AZURE_SEARCH_KEY:
+        azure_search_credential = AzureKeyCredential(os.environ["AZURE_SEARCH_KEY"])
+    else: 
+        azure_search_credential = azure_credential
+
     search_client = SearchClient(
         endpoint=AZURE_SEARCH_ENDPOINT,
         index_name=AZURE_SEARCH_INDEX,
-        credential=azure_credential,
+        credential=azure_search_credential,
     )
     agent_client = KnowledgeAgentRetrievalClient(
         endpoint=AZURE_SEARCH_ENDPOINT, agent_name=AZURE_SEARCH_AGENT, credential=azure_credential
