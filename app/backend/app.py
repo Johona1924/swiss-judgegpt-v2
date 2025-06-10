@@ -525,8 +525,10 @@ async def setup_clients():
     # Set up clients for AI Search and Storage
     azure_search_credential: Union[AzureKeyCredential,AzureDeveloperCliCredential,ManagedIdentityCredential]
     if USE_AZURE_SEARCH_KEY:
+        current_app.logger.info("Setting up Azure AI Search Credential using AZURE Search Key")
         azure_search_credential = AzureKeyCredential(os.environ["AZURE_SEARCH_KEY"])
     else: 
+        current_app.logger.info("Setting up Azure AI Search credential using F")
         azure_search_credential = azure_credential
 
     search_client = SearchClient(
