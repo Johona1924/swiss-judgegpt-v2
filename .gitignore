@@ -152,4 +152,7 @@ data/**/*.md5
 .DS_Store
 
 #Custom
+scratch/
+
+#Custom
 /scratch
