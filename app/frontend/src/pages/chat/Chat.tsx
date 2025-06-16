@@ -4,7 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { Panel, DefaultButton } from "@fluentui/react";
 import readNDJSONStream from "ndjson-readablestream";
 
-import appLogo from "../../assets/applogo.svg";
+import appLogo from "../../assets/Flag_of_Switzerland.svg";
 import styles from "./Chat.module.css";
 
 import {
