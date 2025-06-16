@@ -111,7 +111,7 @@ const Chat = () => {
             if (config.showGPT4VOptions) {
                 setUseGPT4V(true);
             }
-            setUseSemanticRanker(config.showSemanticRankerOption);
+            //setUseSemanticRanker(config.showSemanticRankerOption);
             setShowSemanticRankerOption(config.showSemanticRankerOption);
             setUseQueryRewriting(config.showQueryRewritingOption);
             setShowQueryRewritingOption(config.showQueryRewritingOption);
