@@ -49,7 +49,7 @@ const Chat = () => {
     const [maxSubqueryCount, setMaxSubqueryCount] = useState<number>(10);
     const [resultsMergeStrategy, setResultsMergeStrategy] = useState<string>("interleaved");
     const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>(RetrievalMode.Hybrid);
-    const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(true);
+    const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(false);
     const [useQueryRewriting, setUseQueryRewriting] = useState<boolean>(false);
     const [reasoningEffort, setReasoningEffort] = useState<string>("");
     const [streamingEnabled, setStreamingEnabled] = useState<boolean>(true);

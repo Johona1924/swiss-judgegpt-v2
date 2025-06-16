@@ -32,7 +32,7 @@ export function Component(): JSX.Element {
     const [retrieveCount, setRetrieveCount] = useState<number>(3);
     const [maxSubqueryCount, setMaxSubqueryCount] = useState<number>(10);
     const [resultsMergeStrategy, setResultsMergeStrategy] = useState<string>("interleaved");
-    const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(true);
+    const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(false);
     const [useSemanticCaptions, setUseSemanticCaptions] = useState<boolean>(false);
     const [useQueryRewriting, setUseQueryRewriting] = useState<boolean>(false);
     const [reasoningEffort, setReasoningEffort] = useState<string>("");
