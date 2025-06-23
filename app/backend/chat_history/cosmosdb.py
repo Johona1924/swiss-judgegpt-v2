@@ -31,7 +31,7 @@ async def post_chat_history(auth_claims: dict[str, Any]):
 
     entra_oid = auth_claims.get("oid")
     if not entra_oid:
-        return jsonify({"error": "User OID not found"}), 401
+        return jsonify({"error": "User ID not found"}), 401
 
     try:
         request_json = await request.get_json()
@@ -46,7 +46,7 @@ async def post_chat_history(auth_claims: dict[str, Any]):
             "id": session_id,
             "version": current_app.config[CONFIG_COSMOS_HISTORY_VERSION],
             "session_id": session_id,
-            "entra_oid": entra_oid,
+            "entra_oid": entra_oid,  # Keep field name for backward compatibility
             "type": "session",
             "title": title,
             "timestamp": timestamp,
