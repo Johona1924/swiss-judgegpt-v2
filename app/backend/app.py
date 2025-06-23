@@ -451,7 +451,8 @@ async def setup_clients():
     AZURE_OPENAI_CUSTOM_URL = os.getenv("AZURE_OPENAI_CUSTOM_URL")
     # https://learn.microsoft.com/azure/ai-services/openai/api-version-deprecation#latest-ga-api-release
     AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION") or "2024-10-21"
-    AZURE_VISION_ENDPOINT = os.getenv("AZURE_VISION_ENDPOINT", "")    # Used only with non-Azure OpenAI deployments
+    AZURE_VISION_ENDPOINT = os.getenv("AZURE_VISION_ENDPOINT", "")
+    # Used only with non-Azure OpenAI deployments
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION")
 
@@ -540,7 +541,9 @@ async def setup_clients():
 
     blob_container_client = ContainerClient(
         f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net", AZURE_STORAGE_CONTAINER, credential=azure_credential
-    )    # Set up authentication helper
+    )
+
+    # Set up authentication helper
     search_index = None
     if AZURE_USE_AUTHENTICATION:
         current_app.logger.info("AZURE_USE_AUTHENTICATION is true, setting up search index client")
@@ -564,19 +567,6 @@ async def setup_clients():
     elif USE_AUTH0_AUTHENTICATION:
         current_app.logger.info("USE_AUTH0_AUTHENTICATION is true, setting up Auth0 authentication helper")
         auth_helper = Auth0AuthenticationHelper(use_auth0_authentication=USE_AUTH0_AUTHENTICATION)
-    else:
-        current_app.logger.info("No authentication enabled, setting up default authentication helper")
-        auth_helper = AuthenticationHelper(
-            search_index=None,
-            use_authentication=False,
-            server_app_id=None,
-            server_app_secret=None,
-            client_app_id=None,
-            tenant_id=None,
-            require_access_control=False,
-            enable_global_documents=True,
-            enable_unauthenticated_access=True,
-        )
 
     if USE_USER_UPLOAD:
         current_app.logger.info("USE_USER_UPLOAD is true, setting up user upload feature")

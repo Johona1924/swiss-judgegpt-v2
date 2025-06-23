@@ -448,7 +448,8 @@ var appEnvVariables = {
   AZURE_OPENAI_CUSTOM_URL: azureOpenAiCustomUrl
   // Used only with non-Azure OpenAI deployments
   OPENAI_API_KEY: openAiApiKey
-  OPENAI_ORGANIZATION: openAiApiOrganization  // Optional login and document level access control system
+  OPENAI_ORGANIZATION: openAiApiOrganization
+  // Optional login and document level access control system
   AZURE_USE_AUTHENTICATION: useAuthentication
   USE_AUTH0_AUTHENTICATION: useAuth0Authentication
   AZURE_ENFORCE_ACCESS_CONTROL: enforceAccessControl

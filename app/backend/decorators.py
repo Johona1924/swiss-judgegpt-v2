@@ -15,7 +15,8 @@ def authenticated_path(route_fn: Callable[[str, dict[str, Any]], Any]):
     """
 
     @wraps(route_fn)
-    async def auth_handler(path=""):        # If authentication is enabled, validate the user can access the file
+    async def auth_handler(path=""):
+        # If authentication is enabled, validate the user can access the file
         auth_helper = current_app.config[CONFIG_AUTH_CLIENT]
         search_client = current_app.config[CONFIG_SEARCH_CLIENT]
         authorized = False
@@ -42,7 +43,9 @@ _C = TypeVar("_C", bound=Callable[..., Any])
 def authenticated(route_fn: _C) -> _C:
     """
     Decorator for routes that might require access control. Unpacks Authorization header information into an auth_claims dictionary
-    """    @wraps(route_fn)
+    """
+
+    @wraps(route_fn)
     async def auth_handler(*args, **kwargs):
         auth_helper = current_app.config[CONFIG_AUTH_CLIENT]
         try:
