@@ -278,6 +278,9 @@
     "useAuthentication": {
       "value": "${AZURE_USE_AUTHENTICATION=false}"
     },
+    "useAuth0Authentication":{
+      "value": "${USE_AUTH0_AUTHENTICATION=false}"
+    },
     "enforceAccessControl": {
       "value": "${AZURE_ENFORCE_ACCESS_CONTROL=false}"
     },
