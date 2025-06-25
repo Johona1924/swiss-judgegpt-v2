@@ -1,12 +1,3 @@
-param (
-    [string]$SlotName
-)
-
-if ([string]::IsNullOrEmpty($SlotName)) {
-    Write-Error "Usage: .\deploy-slot.ps1 -SlotName <slot-name>"
-    exit 1
-}
-
 # Set parent of script as current location
 Set-Location $PSScriptRoot\..
 
@@ -18,6 +9,26 @@ foreach ($line in (& azd env get-values)) {
         Set-Item -Path "env:\$key" -Value $value
     }
 }
+
+Write-Host "Checking Azure login and subscription..."
+$currentSubscription = az account show --query "id" -o tsv
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "You are not logged into Azure. Please run 'az login' and try again."
+    exit 1
+}
+
+if ($currentSubscription -ne $env:AZURE_SUBSCRIPTION_ID) {
+    Write-Error "Logged in to wrong Azure subscription. Please run 'az account set --subscription $($env:AZURE_SUBSCRIPTION_ID)'."
+    exit 1
+}
+Write-Host "Azure login and subscription are valid."
+
+if (-not $env:AZURE_APP_SERVICE_SLOT_NAME) {
+    Write-Error "Deploy-to-slot hook requires AZURE_APP_SERVICE_SLOT_NAME environment variable to be set."
+    exit 1
+}
+
+$SlotName = $env:AZURE_APP_SERVICE_SLOT_NAME
 
 if (-not $env:AZURE_APP_SERVICE -or -not $env:AZURE_RESOURCE_GROUP) {
     Write-Error "AZURE_APP_SERVICE or AZURE_RESOURCE_GROUP environment variables not set. Make sure you have run 'azd provision'."
