@@ -133,17 +133,6 @@ pipeline:
       - AZURE_SERVER_APP_SECRET
       - AZURE_CLIENT_APP_SECRET
 hooks:
-    deploy-to-slot:
-      windows:
-        shell: pwsh
-        run: ./scripts/deploy-slot.ps1
-        interactive: true
-        continueOnError: false
-      posix:
-        shell: sh
-        run: ./scripts/deploy-slot.sh
-        interactive: true
-        continueOnError: false
     preprovision:
       windows:
         shell: pwsh
