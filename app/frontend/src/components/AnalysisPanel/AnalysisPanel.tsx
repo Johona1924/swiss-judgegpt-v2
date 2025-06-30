@@ -9,7 +9,7 @@ import { ThoughtProcess } from "./ThoughtProcess";
 import { MarkdownViewer } from "../MarkdownViewer";
 import { useMsal } from "@azure/msal-react";
 import { getHeaders } from "../../api";
-import { useLogin, getToken } from "../../authConfig";
+import { useLogin, getToken, msalConfig } from "../../authConfig";
 import { useState, useEffect } from "react";
 
 interface Props {
@@ -29,7 +29,7 @@ export const AnalysisPanel = ({ answer, activeTab, activeCitation, citationHeigh
     const isDisabledCitationTab: boolean = !activeCitation;
     const [citation, setCitation] = useState("");
 
-    const client = useLogin ? useMsal().instance : undefined;
+    const client = useLogin && msalConfig ? useMsal().instance : undefined;
     const { t } = useTranslation();
 
     const fetchCitation = async () => {

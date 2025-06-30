@@ -11,7 +11,7 @@ import { QuestionInput } from "../../components/QuestionInput";
 import { ExampleList } from "../../components/Example";
 import { AnalysisPanel, AnalysisPanelTabs } from "../../components/AnalysisPanel";
 import { SettingsButton } from "../../components/SettingsButton/SettingsButton";
-import { useLogin, getToken, requireAccessControl } from "../../authConfig";
+import { useLogin, getToken, requireAccessControl, msalConfig } from "../../authConfig";
 import { UploadFile } from "../../components/UploadFile";
 import { Settings } from "../../components/Settings/Settings";
 import { useMsal } from "@azure/msal-react";
@@ -78,7 +78,7 @@ export function Component(): JSX.Element {
     const [activeCitation, setActiveCitation] = useState<string>();
     const [activeAnalysisPanelTab, setActiveAnalysisPanelTab] = useState<AnalysisPanelTabs | undefined>(undefined);
 
-    const client = useLogin ? useMsal().instance : undefined;
+    const client = useLogin && msalConfig ? useMsal().instance : undefined;
     const { loggedIn } = useContext(LoginContext);
 
     const getConfig = async () => {

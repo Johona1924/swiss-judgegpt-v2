@@ -6,7 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslation } from "react-i18next";
 
 import { SimpleAPIResponse, uploadFileApi, deleteUploadedFileApi, listUploadedFilesApi } from "../../api";
-import { useLogin, getToken } from "../../authConfig";
+import { useLogin, getToken, msalConfig } from "../../authConfig";
 import styles from "./UploadFile.module.css";
 
 interface Props {
@@ -29,7 +29,7 @@ export const UploadFile: React.FC<Props> = ({ className, disabled }: Props) => {
         throw new Error("The UploadFile component requires useLogin to be true");
     }
 
-    const client = useMsal().instance;
+    const client = useLogin && msalConfig ? useMsal().instance : undefined;
 
     // Handler for the "Manage file uploads" button
     const handleButtonClick = async () => {
