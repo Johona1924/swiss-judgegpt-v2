@@ -50,3 +50,7 @@ class Auth0AuthenticationHelper:
             "enableUnauthenticatedAccess": not self.use_auth0_authentication,
             "msalConfig": None,  # No MSAL config needed for Auth0
         }
+    
+    def build_security_filters(self, overrides: dict[str, Any], auth_claims: dict[str, Any]):
+        #Not implemented yet
+        return None
