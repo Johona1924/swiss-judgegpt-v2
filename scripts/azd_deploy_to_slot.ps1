@@ -81,6 +81,7 @@ Are you sure you want to proceed with the deployment? (y/n)
     if ([string]::IsNullOrEmpty($slotExists)) {
         Write-Host "Slot '$SlotName' does not exist. Creating it..."
         az webapp deployment slot create --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --configuration-source "$AppServiceName"
+        # TODO : assign system managed identity, give the following resource-group wide RBAC: Search Index Data Reader, Cognitive Services OpenAI User, Cognitive Services Speech User, Storage Blob Data Reader, Reader
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to create deployment slot."
             exit 1
