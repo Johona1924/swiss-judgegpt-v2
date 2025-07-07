@@ -66,8 +66,8 @@ class ChatReadRetrieveReadApproach(ChatApproach):
         self.query_language = query_language
         self.query_speller = query_speller
         self.prompt_manager = prompt_manager
-        self.query_rewrite_prompt = self.prompt_manager.load_prompt("chat_query_rewrite.prompty")
-        self.query_rewrite_tools = self.prompt_manager.load_tools("chat_query_rewrite_tools.json")
+        self.query_rewrite_prompt = self.prompt_manager.load_prompt("chat_query_rewrite_fulltext_trilingual_trifunctional.prompty")
+        self.query_rewrite_tools = self.prompt_manager.load_tools("chat_query_rewrite_tools_fulltext_trilingual.json")
         self.answer_prompt = self.prompt_manager.load_prompt("chat_answer_question.prompty")
         self.reasoning_effort = reasoning_effort
         self.include_token_usage = True
@@ -158,11 +158,11 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                 messages=query_messages,
                 overrides=overrides,
                 response_token_limit=self.get_response_token_limit(
-                    self.chatgpt_model, 100
-                ),  # Setting too low risks malformed JSON, setting too high may affect performance
-                temperature=0.0,  # Minimize creativity for search query generation
+                    self.chatgpt_model, 1000 
+                ), #need minimum 500 max_tokens to get three function calls
+                temperature=0.0,  # Minimize creativity for search query generation 
                 tools=tools,
-                reasoning_effort="low",  # Minimize reasoning for search query generation
+                reasoning_effort="low",  # Minimize reasoning for search query generation, o-series models only
             ),
         )
 
