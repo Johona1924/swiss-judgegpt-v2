@@ -52,8 +52,7 @@ For language LANG in [GERMAN, FRENCH, ITALIAN] DO:
 * For that purpose, ** formulate a search query in language LANG that is effective for full text search **.
 * If applicable, include relevant citations of case law, court decisions, or legal statues in the search query.
 * If you cannot generate a search query, return just the number 0.
-
-** MAKE SURE that you formulate a search query in ALL THREE languages GERMAN, FRENCH, ITALIAN. ** 
+* ** MAKE SURE that you formulate a search query in ALL THREE languages GERMAN, FRENCH, ITALIAN. ** 
 
 # Example
 
