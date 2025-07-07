@@ -1,0 +1,52 @@
+[{
+    "type": "function",
+    "function": {
+        "name": "search_sources_DE",
+        "description": "Retrieve GERMAN sources from the Azure AI Search index using full text search",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_query": {
+                    "type": "string",
+                    "description": "Query string in GERMAN to retrieve documents from Azure AI search using full text search. Contains three different phrasings, separated by '|'. For example :  'Dashcam-Aufnahme rechtswidrig qualifiziert | Gründe für die Rechtswidrigkeit von Dashcam-Aufnahmen | Rechtslage zu Dashcam-Aufnahmen im Gerichtsurteil'"
+                }
+            },
+            "required": ["search_query"]
+        }
+    }
+},
+{
+    "type": "function",
+    "function": {
+        "name": "search_sources_FR",
+        "description": "Retrieve FRENCH sources from the Azure AI Search index using full text search",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_query": {
+                    "type": "string",
+                    "description": "Query string in FRENCH to retrieve documents from Azure AI search using full text search. Contains three different phrasings, separated by '|'. For example :  ''Enregistrement Dashcam qualifié d'illégal | Motifs de l'illégalité des enregistrements Dashcam | Situation juridique des enregistrements Dashcam dans la décision de justice''"
+                }
+            },
+            "required": ["search_query"]
+        }
+    }
+},
+{
+    "type": "function",
+    "function": {
+        "name": "search_sources_IT",
+        "description": "Retrieve ITALIAN sources from the Azure AI Search index using full text search",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_query": {
+                    "type": "string",
+                    "description": "Query string in ITALIAN to retrieve documents from Azure AI search using full text search. Contains three different phrasings, separated by '|'. For example :  'Registrazione di dashcam qualificata come illegale | Motivi dell'illegalità delle registrazioni di dashcam | Situazione giuridica delle registrazioni di dashcam nelle sentenze dei tribunali'"
+                }
+            },
+            "required": ["search_query"]
+        }
+    }
+}
+]
