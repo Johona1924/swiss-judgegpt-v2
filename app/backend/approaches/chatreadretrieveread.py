@@ -17,6 +17,7 @@ from approaches.chatapproach import ChatApproach
 from approaches.promptmanager import PromptManager
 from core.authentication import AuthenticationHelper
 
+import re
 
 class ChatReadRetrieveReadApproach(ChatApproach):
     """
@@ -168,6 +169,25 @@ class ChatReadRetrieveReadApproach(ChatApproach):
 
         query_text = self.get_search_query(chat_completion, original_user_query)
 
+        # Full text search uses Lucene Simple Query Parser https://lucene.apache.org/core/6_6_1/queryparser/org/apache/lucene/queryparser/simple/SimpleQueryParser.html
+        # The current implementation uses '|' do delimit different phrasings or languages in the search query. For simplicity, we delete those, as they have no meaning.
+        query_text = query_text.replace("|","")
+        # Characters that Lucene SimpleQueryParser requires escaping
+        LUCENE_SIMPLE_ESCAPES = r'+|"()\'\\'
+
+        def escape_special_chars(text: str) -> str:
+            """
+            Escapes special characters + | " ( ) ' \ with a single backslash.
+            """
+            try:
+                special_chars = r'+|"()\'\\'
+                pattern = re.compile(f'([{re.escape(special_chars)}])')
+                return pattern.sub(r'\\\1', text)
+            except Exception as e:
+                return text
+        
+        query_text = escape_special_chars(query_text)
+    
         # STEP 2: Retrieve relevant documents from the search index with the GPT optimized query
 
         # If retrieval mode includes vectors, compute an embedding for the query
