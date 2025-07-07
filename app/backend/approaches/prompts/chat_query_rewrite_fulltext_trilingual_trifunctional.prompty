@@ -17,10 +17,13 @@ sample:
     #user_query: Cosa significa esattamente trascrizione a mano?
     #user_query: Quels articles de loi sont mentionnés dans cette décision ?
     #user_query : Was ist die grosse Einschränkung des Produktehaftpflichtrechts aktuell? Welche Schäden werden laut BGer übernommen und welche nicht?
-    user_query : In KI Fällen wir der Nachweis des Verschuldens sowie der Kausalität wahnsinnig schwierig für den Kläger. Welche Rechtsprechungsinstrumente des Bundesgericht könnten dabei helfen?
+    #user_query : In KI Fällen wir der Nachweis des Verschuldens sowie der Kausalität wahnsinnig schwierig für den Kläger. Welche Rechtsprechungsinstrumente des Bundesgericht könnten dabei helfen?
+    #user_query : Quand existe-t-il un intérêt suffisant pour intenter une action en constatation en vertu de l'article 88 du code de procédure civile ?
+    user_query : Quando è sufficiente l'interesse a una sentenza dichiarativa per un'azione ai sensi dell'art. 88 ZPO?
     #user_query: Welche Gesetzesartikel werden in diesem Entscheid erwähnt?
     #user_query: Was bedeuted eigenhändige Niederschrift genau?
     #user_query: Handelt es sich bei Art. 404 Abs. 1 OR um eine zwingende Norm?
+    past_messages:
     #past_messages:
     #    - role: user
     #      content: Nenne einen BGE Fall mit Rechtsprechung zur Formungültigkeit einer nicht unterzeichneten, handschriftlichen letztwilligen Verfügung mit Namenszug auf dem Umschlag.
@@ -36,19 +39,19 @@ sample:
     #      content : Cite un cas d'ATF avec jurisprudence concernant la non-validité formelle d'une disposition testamentaire manuscrite non signée avec mention du nom sur l'enveloppe.
     #    - role : assistant
     #      content : un cas pertinent est l'ATF 98 II 73, dans lequel le Tribunal fédéral a jugé que l'écriture manuscrite de l'ensemble de la disposition était nécessaire pour garantir la validité formelle [ATF 98 II 73].
-    past_messages:
-        - role : user
-        - content: Gilt reine Software gemäss Bundesgericht als Produkt im Sinne des Produktehaftpflichtrechts?
-        - role : assistant
-        - content : Gemäß der Rechtsprechung des Bundesgerichts gilt reine Software nicht als Produkt im Sinne des Produktehaftpflichtrechts. In der Entscheidung BGE 139 V 422 hat das Bundesgericht klargestellt, dass die Haftung nach dem Produktehaftpflichtrecht nicht für immaterielle Güter wie Software gilt, da diese nicht die physische Beschaffenheit aufweisen, die für die Anwendung des Produkthaftpflichtrechts erforderlich ist. Die Normen des Produktehaftpflichtrechts beziehen sich primär auf physische Produkte, die einen direkten Einfluss auf die Sicherheit und die Gesundheit von Personen haben können. Diese Auffassung wird durch die Tatsache gestützt, dass Software in der Regel nicht die gleichen Risiken birgt wie physische Produkte, da sie nicht in der gleichen Weise mit dem Nutzer interagiert und keine physischen Schäden verursachen kann, die typischerweise unter das Produktehaftpflichtrecht fallen. Zusammenfassend lässt sich sagen, dass reine Software nicht als Produkt im Sinne des Produktehaftpflichtrechts betrachtet wird, was bedeutet, dass die spezifischen Bestimmungen zur Haftung für Produkte in diesem Kontext nicht anwendbar sind. [BGE 139 V 422]
-        - role : user 
-        - content : Da das Produktehaftpflicht europarechtskonform ausgelegt wird und die EU ihren Produktebegriff anpasst, wäre es denkbar, dass das BGer doch von Software als Produkt ausgeht?
-        - role : assitant
-        - content : Die Frage, ob das Bundesgericht (BGer) in Zukunft reine Software als Produkt im Sinne des Produktehaftpflichtrechts betrachten könnte, ist angesichts der Entwicklungen im europäischen Recht und der damit verbundenen Anpassungen des Produktebegriffs durchaus relevant. Es bleibt abzuwarten, ob und inwieweit das BGer auf diese Entwicklungen reagieren wird. Bislang bleibt die rechtliche Einordnung von Software als nicht unter das Produktehaftpflichtrecht fallend bestehen. [BGE 139 V 422]
-        - role : user
-        - content : Was ist die grosse Einschränkung des Produktehaftpflichtrechts aktuell? Welche Schäden werden laut BGer übernommen und welche nicht?
-        - role : assistant
-        - content : Die große Einschränkung des Produktehaftpflichtrechts in der Schweiz besteht darin, dass es sich hauptsächlich auf Personen- und Sachschäden konzentriert, die durch fehlerhafte Produkte verursacht werden. Nach der aktuellen Rechtsprechung des Bundesgerichts sind immaterielle Schäden, wie beispielsweise rein wirtschaftliche Schäden oder Schockschäden, nicht grundsätzlich ersatzfähig.
+    # past_messages:
+    #   - role : user
+    #    - content: Gilt reine Software gemäss Bundesgericht als Produkt im Sinne des Produktehaftpflichtrechts?
+    #    - role : assistant
+    #    - content : Gemäß der Rechtsprechung des Bundesgerichts gilt reine Software nicht als Produkt im Sinne des Produktehaftpflichtrechts. In der Entscheidung BGE 139 V 422 hat das Bundesgericht klargestellt, dass die Haftung nach dem Produktehaftpflichtrecht nicht für immaterielle Güter wie Software gilt, da diese nicht die physische Beschaffenheit aufweisen, die für die Anwendung des Produkthaftpflichtrechts erforderlich ist. Die Normen des Produktehaftpflichtrechts beziehen sich primär auf physische Produkte, die einen direkten Einfluss auf die Sicherheit und die Gesundheit von Personen haben können. Diese Auffassung wird durch die Tatsache gestützt, dass Software in der Regel nicht die gleichen Risiken birgt wie physische Produkte, da sie nicht in der gleichen Weise mit dem Nutzer interagiert und keine physischen Schäden verursachen kann, die typischerweise unter das Produktehaftpflichtrecht fallen. Zusammenfassend lässt sich sagen, dass reine Software nicht als Produkt im Sinne des Produktehaftpflichtrechts betrachtet wird, was bedeutet, dass die spezifischen Bestimmungen zur Haftung für Produkte in diesem Kontext nicht anwendbar sind. [BGE 139 V 422]
+    #    - role : user 
+    #    - content : Da das Produktehaftpflicht europarechtskonform ausgelegt wird und die EU ihren Produktebegriff anpasst, wäre es denkbar, dass das BGer doch von Software als Produkt ausgeht?
+    #    - role : assitant
+    #    - content : Die Frage, ob das Bundesgericht (BGer) in Zukunft reine Software als Produkt im Sinne des Produktehaftpflichtrechts betrachten könnte, ist angesichts der Entwicklungen im europäischen Recht und der damit verbundenen Anpassungen des Produktebegriffs durchaus relevant. Es bleibt abzuwarten, ob und inwieweit das BGer auf diese Entwicklungen reagieren wird. Bislang bleibt die rechtliche Einordnung von Software als nicht unter das Produktehaftpflichtrecht fallend bestehen. [BGE 139 V 422]
+    #    - role : user
+    #    - content : Was ist die grosse Einschränkung des Produktehaftpflichtrechts aktuell? Welche Schäden werden laut BGer übernommen und welche nicht?
+    #    - role : assistant
+    #    - content : Die große Einschränkung des Produktehaftpflichtrechts in der Schweiz besteht darin, dass es sich hauptsächlich auf Personen- und Sachschäden konzentriert, die durch fehlerhafte Produkte verursacht werden. Nach der aktuellen Rechtsprechung des Bundesgerichts sind immaterielle Schäden, wie beispielsweise rein wirtschaftliche Schäden oder Schockschäden, nicht grundsätzlich ersatzfähig.
 ---
 system:
 # Identity
@@ -107,12 +110,6 @@ Your task is to analyze the previous conversation and the user's last question i
     "role": "assistant",
     "tool_calls": [
       {
-        "name": "search_sources_DE",
-        "arguments": {
-          "search_query": "BGE 146 IV 226 | Gründe für die Rechtswidrigkeit von Dashcam-Aufnahmen | Rechtslage zu Dashcam-Aufnahmen in BGE 146 IV 226"
-        }
-      },
-      {
         "name": "search_sources_FR",
         "arguments": {
           "search_query": "ATF 146 IV 226 | Motifs d'illégalité des enregistrements de dashcam | Statut juridique des enregistrements de dashcam dans le BGE 146 IV 226"
@@ -122,6 +119,12 @@ Your task is to analyze the previous conversation and the user's last question i
         "name": "search_sources_IT",
         "arguments": {
           "search_query": "DTF 146 IV 226 |  Motivi di illegittimità delle registrazioni di dashcam | Situazione giuridica delle registrazioni dashcam nella BGE 146 IV 226"
+        }
+      },
+      {
+        "name": "search_sources_DE",
+        "arguments": {
+          "search_query": "BGE 146 IV 226 | Gründe für die Rechtswidrigkeit von Dashcam-Aufnahmen | Rechtslage zu Dashcam-Aufnahmen in BGE 146 IV 226"
         }
       }
     ],
@@ -140,6 +143,12 @@ Your task is to analyze the previous conversation and the user's last question i
     "role": "assistant",
     "tool_calls": [
       {
+        "name": "search_sources_IT",
+        "arguments": {
+          "search_query": "Ponderazione degli interessi in materia di prove | Art. 141 comma 2 CPP e ponderazione degli interessi | Illegittimità delle registrazioni delle videocamere da cruscotto e ponderazione degli interessi"
+        }
+      },
+      {
         "name": "search_sources_DE",
         "arguments": {
           "search_query": "Interessenabwägung bei Beweismitteln | Art. 141 Abs. 2 StPO und Interessenabwägung | Rechtswidrigkeit von Dashcam-Aufnahmen und Interessenabwägung"
@@ -149,12 +158,6 @@ Your task is to analyze the previous conversation and the user's last question i
         "name": "search_sources_FR",
         "arguments": {
           "search_query": "Pesée des intérêts en matière de moyens de preuve | Art. 141 al. 2 CPP et pesée des intérêts | Ilégalité des enregistrements Dashcam et pesée des intérêts"
-        }
-      },
-      {
-        "name": "search_sources_IT",
-        "arguments": {
-          "search_query": "Ponderazione degli interessi in materia di prove | Art. 141 comma 2 CPP e ponderazione degli interessi | Illegittimità delle registrazioni delle videocamere da cruscotto e ponderazione degli interessi"
         }
       }
     ],
