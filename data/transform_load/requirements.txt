@@ -1,0 +1,8 @@
+# Core dependencies for document transformation and blob loading
+azure-storage-blob>=12.19.0
+tqdm>=4.66.0
+
+# Optional dependencies for enhanced functionality
+jsonschema>=4.20.0  # For advanced schema validation
+pydantic>=2.5.0     # For data validation and serialization
+click>=8.1.0        # Alternative CLI framework

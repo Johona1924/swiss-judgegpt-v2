@@ -153,3 +153,4 @@ data/**/*.md5
 
 #Custom
 scratch/
+raw_data/

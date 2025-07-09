@@ -1,0 +1,60 @@
+{
+  "transformers": {
+    "published_bger": {
+      "description": "Published BGer judgments transformer",
+      "input_extension": ".md",
+      "output_extension": ".json",
+      "filename_pattern": "(?P<volume>\\d+)\\s+(?P<roman>[IVX]+[AB]?)\\s+(?P<page>\\d+)\\.md",
+      "validation": {
+        "strict_filename_parsing": true,
+        "require_title": true,
+        "require_content": true
+      }
+    },
+    "published_bger_trilingual" : {
+      "description": "Published BGer judgments transformer, gives language_specific context fields",
+      "input_extension": ".md",
+      "output_extension": ".json",
+      "filename_pattern": "(?P<volume>\\d+)\\s+(?P<roman>[IVX]+[AB]?)\\s+(?P<page>\\d+)\\.md",
+      "validation": {
+        "strict_filename_parsing": true,
+        "require_title": true,
+        "require_content": true
+      }
+    }
+  },
+  "schemas": {
+    "published_bger": {
+      "name": "Published BGer Judgment Schema",
+      "version": "1.0",
+      "required_fields": ["title", "content", "filename", "last_updated"],
+      "optional_fields": ["year", "volume_number", "volume_roman", "first_page", "language"]
+    },
+     "published_bger_trilingual": {
+      "name": "Published BGer Judgment Schema Trilingual (de/fr/it)",
+      "version": "1.0",
+      "required_fields": ["title", "content", "filename", "last_updated", "content_de", "content_fr", "content_it", "language"],
+      "optional_fields": ["year", "volume_number", "volume_roman", "first_page"]
+    }
+  },
+  "blob_storage": {
+    "default_container": "",
+    "content_settings": {
+      "content_type": "application/json",
+      "content_encoding": "UTF-8"
+    },
+    "batch_size": 50,
+    "retry_attempts": 3,
+    "max_workers": 10,
+    "retry_delay_base": 2,
+    "retry_delay_max": 60,
+    "upload_timeout": 300,
+    "enable_progress_bar": true
+  },
+  "logging": {
+    "level": "INFO",
+    "log_transformations": true,
+    "log_uploads": true,
+    "error_handling": "continue"
+  }
+}
