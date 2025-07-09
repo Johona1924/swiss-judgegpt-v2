@@ -50,9 +50,9 @@ class Document:
     score: Optional[float] = None
     reranker_score: Optional[float] = None
     search_agent_query: Optional[str] = None
+    fulltext_search_query: Optional[str] = None
     # Multilingual search metadata
     language: Optional[str] = None
-    content_field: Optional[str] = None
 
     def serialize_for_results(self) -> dict[str, Any]:
         result_dict = {
@@ -78,8 +78,8 @@ class Document:
             "score": self.score,
             "reranker_score": self.reranker_score,
             "search_agent_query": self.search_agent_query,
+            "fulltext_search_query": self.fulltext_search_query,
             "language": self.language,
-            "content_field": self.content_field,
         }
         return result_dict
 
@@ -204,6 +204,7 @@ class Approach(ABC):
         minimum_reranker_score: Optional[float] = None,
         use_query_rewriting: Optional[bool] = None,
         search_fields: Optional[list[str]] = None,
+        content_field_name : Optional[str] = None
     ) -> list[Document]:
         search_text = query_text if use_text_search else ""
         search_vectors = vectors if use_vector_search else []
@@ -237,12 +238,14 @@ class Approach(ABC):
                 documents.append(
                     Document(
                         id=document.get("id"),
-                        content=document.get("content"),
+                        content=document.get(content_field_name) if content_field_name else document.get("content"),
                         category=document.get("category"),
                         sourcepage=document.get("sourcepage"),
                         sourcefile=document.get("sourcefile"),
                         oids=document.get("oids"),
                         groups=document.get("groups"),
+                        language=document.get("language"),
+                        fulltext_search_query=search_text,
                         captions=cast(list[QueryCaptionResult], document.get("@search.captions")),
                         score=document.get("@search.score"),
                         reranker_score=document.get("@search.reranker_score"),

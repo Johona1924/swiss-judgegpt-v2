@@ -425,6 +425,9 @@ class ChatReadRetrieveReadApproach(ChatApproach):
             
             # Configure search fields for language-specific content
             search_fields = [f"content_{lang_code}"] if use_text_search else None
+
+            # Pass content_field_name so Document dataclass is correctly populated
+            content_field_name = f"content_{lang_code}"
             
             # Create a task that uses the existing search method
             task = self.search(
@@ -440,6 +443,7 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                 minimum_reranker_score=minimum_reranker_score,
                 use_query_rewriting=use_query_rewriting,
                 search_fields=search_fields,
+                content_field_name=content_field_name
             )
             search_tasks.append(task)
         
