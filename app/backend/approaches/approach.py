@@ -50,6 +50,9 @@ class Document:
     score: Optional[float] = None
     reranker_score: Optional[float] = None
     search_agent_query: Optional[str] = None
+    # Multilingual search metadata
+    language: Optional[str] = None
+    content_field: Optional[str] = None
 
     def serialize_for_results(self) -> dict[str, Any]:
         result_dict = {
@@ -75,6 +78,8 @@ class Document:
             "score": self.score,
             "reranker_score": self.reranker_score,
             "search_agent_query": self.search_agent_query,
+            "language": self.language,
+            "content_field": self.content_field,
         }
         return result_dict
 
@@ -198,6 +203,7 @@ class Approach(ABC):
         minimum_search_score: Optional[float] = None,
         minimum_reranker_score: Optional[float] = None,
         use_query_rewriting: Optional[bool] = None,
+        search_fields: Optional[list[str]] = None,
     ) -> list[Document]:
         search_text = query_text if use_text_search else ""
         search_vectors = vectors if use_vector_search else []
@@ -206,6 +212,7 @@ class Approach(ABC):
                 search_text=search_text,
                 filter=filter,
                 top=top,
+                search_fields=search_fields,
                 query_caption="extractive|highlight-false" if use_semantic_captions else None,
                 query_rewrites="generative" if use_query_rewriting else None,
                 vector_queries=search_vectors,
@@ -220,6 +227,7 @@ class Approach(ABC):
                 search_text=search_text,
                 filter=filter,
                 top=top,
+                search_fields=search_fields,
                 vector_queries=search_vectors,
             )
 

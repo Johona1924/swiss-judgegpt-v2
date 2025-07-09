@@ -103,6 +103,7 @@ from prepdocs import (
 )
 from prepdocslib.filestrategy import UploadUserFileStrategy
 from prepdocslib.listfilestrategy import File
+from core.multilingual_helper import validate_multilingual_search_config
 
 bp = Blueprint("routes", __name__, static_folder="static")
 # Fix Windows registry issue with mimetypes
@@ -541,6 +542,19 @@ async def setup_clients():
 
     blob_container_client = ContainerClient(
         f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net", AZURE_STORAGE_CONTAINER, credential=azure_credential
+    )
+
+    # Validate and configure multilingual search settings
+    ENABLE_MULTILINGUAL_SEARCH = os.getenv("ENABLE_MULTILINGUAL_SEARCH", "false").lower() == "true"
+    current_app.logger.info(f"ENABLE_MULTILINGUAL_SEARCH set to {ENABLE_MULTILINGUAL_SEARCH}")
+
+    CONTENT_LANGUAGE = os.getenv("CONTENT_LANGUAGE")
+
+    # Validate multilingual search configuration early at startup (synchronous)
+    validate_multilingual_search_config(
+        enable_multilingual=ENABLE_MULTILINGUAL_SEARCH,
+        content_language=CONTENT_LANGUAGE,
+        app_logger=current_app.logger
     )
 
     # Set up authentication helper

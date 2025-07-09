@@ -44,14 +44,44 @@ class ChatApproach(Approach, ABC):
                     if search_query != self.NO_RESPONSE:
                         search_queries.append(search_query.strip())
             if search_queries:
-                return " | ".join(search_queries)
+                return " ".join(search_queries)
             else:
-                logging.DEBUG(f"tool_calls detected, but parsed empty list : {search_queries}")
+                logging.debug(f"tool_calls detected, but parsed empty list : {search_queries}")
                 return user_query
         elif query_text := response_message.content:
             if query_text.strip() != self.NO_RESPONSE:
                 return query_text
         return user_query
+    
+    def get_multilingual_search_queries(self, chat_completion: ChatCompletion) -> dict[str, str]:
+        """
+        Extract language-specific search queries from chat completion
+        Returns a dictionary mapping language codes to search queries
+        """
+        response_message = chat_completion.choices[0].message
+        queries = {}
+
+        if response_message.tool_calls:
+            for tool in response_message.tool_calls:
+                if tool.type != "function":
+                    continue
+                function = tool.function
+                if function.name.startswith("search_sources_"):
+                    # Extract language code from function name (e.g., search_sources_DE -> de)
+                    lang_code = function.name.split("_")[-1].lower()
+                    
+                    try:
+                        arg = json.loads(function.arguments)
+                        search_query = arg.get("search_query", "")
+                        if search_query and search_query.strip() != self.NO_RESPONSE:
+                            # Clean up the query (remove pipe separators)
+                            cleaned_query = search_query.replace("|", " ").strip()
+                            queries[lang_code] = cleaned_query
+                    except json.JSONDecodeError:
+                        logging.warning(f"Failed to parse tool arguments for {function.name}")
+                        continue
+
+        return queries
 
     def extract_followup_questions(self, content: Optional[str]):
         if content is None:
