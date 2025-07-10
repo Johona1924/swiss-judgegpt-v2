@@ -550,7 +550,7 @@ async def setup_clients():
 
     CONTENT_LANGUAGE = os.getenv("CONTENT_LANGUAGE")
 
-    # Validate multilingual search configuration early at startup (synchronous)
+    # Validate multilingual search configuration
     await validate_multilingual_search_config(
         enable_multilingual=ENABLE_MULTILINGUAL_SEARCH,
         search_endpoint=AZURE_SEARCH_ENDPOINT,
