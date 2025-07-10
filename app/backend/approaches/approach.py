@@ -203,7 +203,7 @@ class Approach(ABC):
         minimum_search_score: Optional[float] = None,
         minimum_reranker_score: Optional[float] = None,
         use_query_rewriting: Optional[bool] = None,
-        search_fields: Optional[list[str]] = None,
+        search_fields: Optional[list[str]] = None, # If left empty, Azure AI Search searches all 'searchable' fields
         content_field_name : Optional[str] = None
     ) -> list[Document]:
         search_text = query_text if use_text_search else ""

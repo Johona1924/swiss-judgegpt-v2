@@ -258,19 +258,23 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                 )
             else:
                 # Fallback to traditional search if no multilingual queries found
-                logger.warning("Multilingual mode enabled but no multilingual queries found, falling back to traditional search")
+                supported_languages = get_supported_languages()
+                fallback_lang = supported_languages[0]
+                logger.warning(f"Multilingual mode enabled but no multilingual queries found, falling back to full text search on content_{fallback_lang} field")
                 results = await self.search(
-                    top,
-                    query_text,
-                    search_index_filter,
-                    vectors,
-                    use_text_search,
-                    use_vector_search,
-                    use_semantic_ranker,
-                    use_semantic_captions,
-                    minimum_search_score,
-                    minimum_reranker_score,
-                    use_query_rewriting,
+                    top=top,
+                    query_text=query_text,
+                    filter=search_index_filter,
+                    vectors=vectors,
+                    use_text_search=use_text_search,
+                    use_vector_search=use_vector_search,
+                    use_semantic_ranker=use_semantic_ranker,
+                    use_semantic_captions=use_semantic_captions,
+                    minimum_search_score=minimum_search_score,
+                    minimum_reranker_score=minimum_reranker_score,
+                    use_query_rewriting=use_query_rewriting,
+                    search_fields=[f"content_{fallback_lang}"] if use_text_search else None,
+                    content_field_name=f"content_{fallback_lang}"
                 )
         else:
             # Use monolingual search approach with single content field
