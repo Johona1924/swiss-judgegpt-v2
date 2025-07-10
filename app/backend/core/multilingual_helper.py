@@ -6,7 +6,6 @@ to ensure the app fails fast if configuration is invalid.
 """
 
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -258,9 +257,8 @@ def get_multilingual_prompt_files() -> tuple[str, str]:
     if not supported_languages:
         raise ValueError("No multilingual prompt directories found")
     
-    sorted_languages = sorted(supported_languages)
-    folder_name = "_".join(sorted_languages).upper()
-    base_name = "_".join(sorted_languages)
+    folder_name = "_".join(supported_languages).upper()
+    base_name = "_".join(supported_languages)
     
     prompty_file = f"MULTILINGUAL/{folder_name}/chat_query_rewrite_{base_name}.prompty"
     tools_file = f"MULTILINGUAL/{folder_name}/chat_query_rewrite_tools_{base_name}.json"
