@@ -131,7 +131,7 @@ async def _validate_multilingual_index_schema(search_endpoint: str, search_index
         
         # Check for language field
         language_field = None
-        for candidate in ['language', 'lang', 'locale']:
+        for candidate in ['language']:
             if candidate in fields and fields[candidate].filterable:
                 language_field = candidate
                 break
@@ -139,7 +139,7 @@ async def _validate_multilingual_index_schema(search_endpoint: str, search_index
         if not language_field:
             raise ValueError(
                 "Multilingual search enabled but no filterable language field found in index schema. "
-                "Required: 'language', 'lang', or 'locale' field that is filterable."
+                "Required: 'language' field that is filterable."
             )
         
         # Check for language-specific content fields
@@ -157,8 +157,13 @@ async def _validate_multilingual_index_schema(search_endpoint: str, search_index
         if len(language_content_fields) < 1:
             raise ValueError(
                 "Multilingual search enabled but no language-specific content fields found in index schema. "
-                "Required: 'content_{lang}' fields (e.g., content_de, content_fr, content_it) that are searchable."
+                "Required: 'content_LANG' fields (e.g., content_de, content_fr, content_it) that are searchable."
             )
+        
+        prompt_supported_languages = get_supported_languages()
+
+        if not sorted(supported_languages) == sorted(prompt_supported_languages):
+            raise ValueError(f"The languages supported by the Search Index {supported_languages} to not match the languages supported by the multilingual search prompts {prompt_supported_languages}")
         
         log.info(
             f"✅ Multilingual index schema validated successfully. "
@@ -232,18 +237,22 @@ def get_supported_languages() -> list[str]:
     if not prompt_base_path.exists():
         return []
     
-    for dir_path in prompt_base_path.iterdir():
-        if dir_path.is_dir():
-            # Check if this directory has the required files
-            languages = dir_path.name.lower().split('_')
-            base_name = "_".join(languages)
-            
-            prompty_file = prompt_base_path / dir_path.name / f"chat_query_rewrite_{base_name}.prompty"
-            tools_file = prompt_base_path / dir_path.name / f"chat_query_rewrite_tools_{base_name}.json"
-            
-            # Check if files exist
-            if prompty_file.exists() and tools_file.exists():
-                return [lang.lower() for lang in languages]
+    all_dir_paths = [dir_path for dir_path in prompt_base_path.iterdir() if dir_path.is_dir()]
+
+    if len(all_dir_paths) > 1:
+        raise NotImplementedError(f"We see that you have added more than one multilingual prompts into folder MULTILINGUAL.\nThis feature is currently not supported.")
+    
+    for dir_path in all_dir_paths:
+        # Check if this directory has the required files
+        languages = dir_path.name.lower().split('_')
+        base_name = "_".join(languages)
+        
+        prompty_file = prompt_base_path / dir_path.name / f"chat_query_rewrite_{base_name}.prompty"
+        tools_file = prompt_base_path / dir_path.name / f"chat_query_rewrite_tools_{base_name}.json"
+        
+        # Check if files exist
+        if prompty_file.exists() and tools_file.exists():
+            return [lang.lower() for lang in languages]
     
     return []
 
