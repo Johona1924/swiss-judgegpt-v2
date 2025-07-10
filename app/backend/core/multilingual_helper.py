@@ -15,18 +15,17 @@ from azure.search.documents.indexes.aio import SearchIndexClient
 logger = logging.getLogger(__name__)
 
 
-def validate_multilingual_search_config(
+async def validate_multilingual_search_config(
     enable_multilingual: bool,
+    search_endpoint : str,
+    search_index : str,
+    azure_credential : str,
     content_language: Optional[str],
-    app_logger=None
+    app_logger=None,
 ) -> None:
     """
     Validate multilingual search configuration early at startup.
     This ensures the app fails fast if configuration is invalid.
-    
-    Note: This is now a synchronous function that only validates environment
-    variables and prompt file structure. Index schema validation happens
-    later during the first search request.
     
     Args:
         enable_multilingual: Whether multilingual search is enabled
@@ -42,9 +41,11 @@ def validate_multilingual_search_config(
     if enable_multilingual:
         log.info("ENABLE_MULTILINGUAL_SEARCH is true, validating multilingual configuration")
         _validate_multilingual_prompt_files(log)
+        await _validate_multilingual_index_schema(search_endpoint,search_index,azure_credential,log)
     else:
         log.info("ENABLE_MULTILINGUAL_SEARCH is false, validating monolingual configuration")
-        _validate_monolingual_mode_sync(content_language, log)
+        _validate_monolingual_mode(content_language, log)
+        await _validate_monolingual_index_schema(search_endpoint,search_index,azure_credential,log)
 
 
 def _validate_multilingual_prompt_files(log=None) -> None:
@@ -72,8 +73,8 @@ def _validate_multilingual_prompt_files(log=None) -> None:
     log.info(f"✅ Multilingual prompt files validated for languages: {supported_languages}")
 
 
-def _validate_monolingual_mode_sync(content_language: Optional[str], log=None) -> None:
-    """Validate monolingual mode requirements synchronously"""
+def _validate_monolingual_mode(content_language: Optional[str], log=None) -> None:
+    """Validate monolingual mode requirements"""
     log = log if log else logger
     
     if not content_language:
@@ -86,36 +87,6 @@ def _validate_monolingual_mode_sync(content_language: Optional[str], log=None) -
     _validate_prompt_files_monolingual(content_language, log)
     
     log.info(f"✅ Monolingual prompt files validated for language: {content_language}")
-
-
-async def validate_index_schema(
-    enable_multilingual: bool,
-    search_endpoint: str,
-    search_index: str,
-    azure_credential,
-    log=None
-) -> None:
-    """
-    Validate the search index schema. This is called asynchronously
-    during the first search request, not during app startup.
-    
-    Args:
-        enable_multilingual: Whether multilingual search is enabled
-        search_endpoint: Azure Search service endpoint
-        search_index: Azure Search index name
-        azure_credential: Azure credential for authentication
-        log: Logger to use for output
-        
-    Raises:
-        ValueError: If index schema is invalid
-    """
-    log = log if log else logger
-    
-    if enable_multilingual:
-        await _validate_multilingual_index_schema(search_endpoint, search_index, azure_credential, log)
-    else:
-        await _validate_monolingual_index_schema(search_endpoint, search_index, azure_credential, log)
-
 
 async def _validate_multilingual_index_schema(search_endpoint: str, search_index: str, azure_credential, log=None) -> None:
     """Validate multilingual mode index schema requirements"""
