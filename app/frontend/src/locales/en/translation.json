@@ -33,6 +33,7 @@
         "fileDeleted": "File deleted"
     },
     "developerSettings": "Developer settings",
+    "filters": "Filters",
 
     "chatEmptyStateTitle": "Swiss Judge GPT",
     "chatEmptyStateSubtitle": "Rechtsprechung durchsuchen",
@@ -132,7 +133,12 @@
         },
         "useOidSecurityFilter": "Use oid security filter",
         "useGroupsSecurityFilter": "Use groups security filter",
-        "shouldStream": "Stream chat completion responses"
+        "shouldStream": "Stream chat completion responses",
+        "filterByYear": "Filter by Year",
+        "yearFrom": "From year",
+        "yearTo": "To year",
+        "yearFromPlaceholder": "e.g. 2020",
+        "yearToPlaceholder": "e.g. 2024"
     },
 
     "helpTexts": {
@@ -174,6 +180,7 @@
         "streamChat": "Continuously streams the response to the chat UI as it is generated.",
         "useOidSecurityFilter": "Filter search results based on the authenticated user's OID.",
         "useGroupsSecurityFilter": "Filter search results based on the authenticated user's groups.",
-        "useAgenticRetrieval": "Use agentic retrieval from Azure AI Search for multi-query planning. Always uses semantic ranker."
+        "useAgenticRetrieval": "Use agentic retrieval from Azure AI Search for multi-query planning. Always uses semantic ranker.",
+        "filterByYear": "Filter search results by year range. Leave empty for open-ended filtering."
     }
 }

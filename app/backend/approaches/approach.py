@@ -51,6 +51,8 @@ class Document:
     reranker_score: Optional[float] = None
     search_agent_query: Optional[str] = None
     fulltext_search_query: Optional[str] = None
+    # Filter metadata
+    applied_filter: Optional[str] = None
     # Multilingual search metadata
     language: Optional[str] = None
 
@@ -80,6 +82,7 @@ class Document:
             "search_agent_query": self.search_agent_query,
             "fulltext_search_query": self.fulltext_search_query,
             "language": self.language,
+            "applied_filter": self.applied_filter
         }
         return result_dict
 
@@ -180,12 +183,22 @@ class Approach(ABC):
     def build_filter(self, overrides: dict[str, Any], auth_claims: dict[str, Any]) -> Optional[str]:
         include_category = overrides.get("include_category")
         exclude_category = overrides.get("exclude_category")
+        year_from = overrides.get("year_from")
+        year_to = overrides.get("year_to")
         security_filter = self.auth_helper.build_security_filters(overrides, auth_claims)
         filters = []
         if include_category:
             filters.append("category eq '{}'".format(include_category.replace("'", "''")))
         if exclude_category:
             filters.append("category ne '{}'".format(exclude_category.replace("'", "''")))
+        if year_from is not None:
+            # Convert year to DateTime filter - assumes the year field is a DateTimeOffset
+            # Filter for dates >= January 1st of the from year
+            filters.append("year ge {}".format(f"{year_from}-01-01T00:00:00Z"))
+        if year_to is not None:
+            # Convert year to DateTime filter - assumes the year field is a DateTimeOffset
+            # Filter for dates <= December 31st of the to year
+            filters.append("year le {}".format(f"{year_to}-12-31T23:59:59Z"))
         if security_filter:
             filters.append(security_filter)
         return None if len(filters) == 0 else " and ".join(filters)
@@ -246,6 +259,7 @@ class Approach(ABC):
                         groups=document.get("groups"),
                         language=document.get("language"),
                         fulltext_search_query=search_text,
+                        applied_filter=filter,
                         captions=cast(list[QueryCaptionResult], document.get("@search.captions")),
                         score=document.get("@search.score"),
                         reranker_score=document.get("@search.reranker_score"),

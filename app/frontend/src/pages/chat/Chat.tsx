@@ -28,6 +28,7 @@ import { HistoryPanel } from "../../components/HistoryPanel";
 import { HistoryProviderOptions, useHistoryManager } from "../../components/HistoryProviders";
 import { HistoryButton } from "../../components/HistoryButton";
 import { SettingsButton } from "../../components/SettingsButton";
+import { FilterButton } from "../../components/FilterButton";
 import { ClearChatButton } from "../../components/ClearChatButton";
 import { UploadFile } from "../../components/UploadFile";
 import { useLogin, getToken, requireAccessControl, msalConfig } from "../../authConfig";
@@ -36,12 +37,16 @@ import { TokenClaimsDisplay } from "../../components/TokenClaimsDisplay";
 import { LoginContext } from "../../loginContext";
 import { LanguagePicker } from "../../i18n/LanguagePicker";
 import { Settings } from "../../components/Settings/Settings";
+import { Filters } from "../../components/Filters/Filters";
 
 const Chat = () => {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
+    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
     const [promptTemplate, setPromptTemplate] = useState<string>("");
     const [temperature, setTemperature] = useState<number>(0.3);
+    const [yearFrom, setYearFrom] = useState<number | undefined>(undefined);
+    const [yearTo, setYearTo] = useState<number | undefined>(undefined);
     const [seed, setSeed] = useState<number | null>(null);
     const [minimumRerankerScore, setMinimumRerankerScore] = useState<number>(0);
     const [minimumSearchScore, setMinimumSearchScore] = useState<number>(0);
@@ -237,7 +242,9 @@ const Chat = () => {
                         gpt4v_input: gpt4vInput,
                         language: i18n.language,
                         use_agentic_retrieval: useAgenticRetrieval,
-                        ...(seed !== null ? { seed: seed } : {})
+                        ...(seed !== null ? { seed: seed } : {}),
+                        ...(yearFrom !== undefined ? { year_from: yearFrom } : {}),
+                        ...(yearTo !== undefined ? { year_to: yearTo } : {})
                     }
                 },
                 // AI Chat Protocol: Client must pass on any session state received from the server
@@ -365,6 +372,13 @@ const Chat = () => {
                 break;
             case "useAgenticRetrieval":
                 setUseAgenticRetrieval(value);
+                break;
+            case "yearFrom":
+                setYearFrom(value);
+                break;
+            case "yearTo":
+                setYearTo(value);
+                break;
         }
     };
 
@@ -410,6 +424,7 @@ const Chat = () => {
                 <div className={styles.commandsContainer}>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />
                     {showUserUpload && <UploadFile className={styles.commandButton} disabled={!loggedIn} />}
+                    <FilterButton className={styles.commandButton} onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)} />
                     <SettingsButton className={styles.commandButton} onClick={() => setIsConfigPanelOpen(!isConfigPanelOpen)} />
                 </div>
             </div>
@@ -576,6 +591,22 @@ const Chat = () => {
                         onChange={handleSettingsChange}
                     />
                     {useLogin && <TokenClaimsDisplay />}
+                </Panel>
+
+                <Panel
+                    headerText={t("filters")}
+                    isOpen={isFilterPanelOpen}
+                    isBlocking={false}
+                    onDismiss={() => setIsFilterPanelOpen(false)}
+                    closeButtonAriaLabel={t("labels.closeButton")}
+                    onRenderFooterContent={() => <DefaultButton onClick={() => setIsFilterPanelOpen(false)}>{t("labels.closeButton")}</DefaultButton>}
+                    isFooterAtBottom={true}
+                >
+                    <Filters
+                        yearFrom={yearFrom}
+                        yearTo={yearTo}
+                        onChange={handleSettingsChange}
+                    />
                 </Panel>
             </div>
         </div>
