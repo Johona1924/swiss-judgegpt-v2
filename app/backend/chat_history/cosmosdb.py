@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 from typing import Any, Union
 
 from azure.cosmos.aio import ContainerProxy, CosmosClient
@@ -17,6 +18,11 @@ from decorators import authenticated
 from error import error_response
 
 chat_history_cosmosdb_bp = Blueprint("chat_history_cosmos", __name__, static_folder="static")
+
+
+def current_iso_timestamp():
+    """Get current timestamp in ISO format"""
+    return datetime.utcnow().isoformat() + "Z"
 
 
 @chat_history_cosmosdb_bp.post("/chat_history")
@@ -39,7 +45,19 @@ async def post_chat_history(auth_claims: dict[str, Any]):
         message_pairs = request_json.get("answers")
         first_question = message_pairs[0][0]
         title = first_question + "..." if len(first_question) > 50 else first_question
-        timestamp = int(time.time() * 1000)
+
+        # Handle session item timestamps - check if session exists
+        session_timestamps = {}
+        try:
+            existing_session = await container.read_item(item=session_id, partition_key=[entra_oid, session_id])
+            # Preserve createdAt, update updatedAt for session activity
+            session_timestamps["createdAt"] = existing_session["createdAt"]
+            session_timestamps["updatedAt"] = current_iso_timestamp()
+        except Exception:
+            # New session - set both timestamps
+            current_time = current_iso_timestamp()
+            session_timestamps["createdAt"] = current_time
+            session_timestamps["updatedAt"] = current_time
 
         # Insert the session item:
         session_item = {
@@ -49,7 +67,8 @@ async def post_chat_history(auth_claims: dict[str, Any]):
             "entra_oid": entra_oid,  # Keep field name for backward compatibility
             "type": "session",
             "title": title,
-            "timestamp": timestamp,
+            "createdAt": session_timestamps["createdAt"],
+            "updatedAt": session_timestamps["updatedAt"],
         }
 
         message_pair_items = []
@@ -70,6 +89,19 @@ async def post_chat_history(auth_claims: dict[str, Any]):
                 message_pair_item["feedback"] = message_pair[1]["feedback"]
             else:
                 message_pair_item["feedback"] = "neutral"
+            
+            # Handle message timestamps - check if message exists
+            message_id = f"{session_id}-{ind}"
+            try:
+                existing_message = await container.read_item(item=message_id, partition_key=[entra_oid, session_id])
+                # Preserve both timestamps for existing messages
+                message_pair_item["createdAt"] = existing_message["createdAt"]
+                message_pair_item["updatedAt"] = existing_message["updatedAt"]
+            except Exception:
+                # New message - set both timestamps
+                current_time = current_iso_timestamp()
+                message_pair_item["createdAt"] = current_time
+                message_pair_item["updatedAt"] = current_time
                 
             message_pair_items.append(message_pair_item)
 
@@ -101,7 +133,7 @@ async def get_chat_history_sessions(auth_claims: dict[str, Any]):
         continuation_token = request.args.get("continuation_token")
 
         res = container.query_items(
-            query="SELECT c.id, c.entra_oid, c.title, c.timestamp FROM c WHERE c.entra_oid = @entra_oid AND c.type = @type ORDER BY c.timestamp DESC",
+            query="SELECT * FROM c WHERE c.entra_oid = @entra_oid AND c.type = @type ORDER BY c.updatedAt DESC",
             parameters=[dict(name="@entra_oid", value=entra_oid), dict(name="@type", value="session")],
             partition_key=[entra_oid],
             max_item_count=count,
@@ -115,13 +147,15 @@ async def get_chat_history_sessions(auth_claims: dict[str, Any]):
             page = await pager.__anext__()
             continuation_token = pager.continuation_token  # type: ignore
 
+            # Build response from ordered results
             async for item in page:
                 sessions.append(
                     {
                         "id": item.get("id"),
                         "entra_oid": item.get("entra_oid"),
                         "title": item.get("title", "untitled"),
-                        "timestamp": item.get("timestamp"),
+                        "updatedAt": item.get("updatedAt"),
+                        "createdAt": item.get("createdAt"),
                     }
                 )
 
@@ -220,8 +254,18 @@ async def update_message_feedback(auth_claims: dict[str, Any]):
         # Read the existing message
         message_item = await container.read_item(item=message_id, partition_key=[entra_oid, session_id])
         
-        # Update the feedback
+        # Update the feedback and updatedAt (preserve createdAt)
         message_item["feedback"] = feedback
+        message_item["updatedAt"] = current_iso_timestamp()
+        
+        # Also update session's updatedAt to reflect recent activity
+        try:
+            session_item = await container.read_item(item=session_id, partition_key=[entra_oid, session_id])
+            session_item["updatedAt"] = current_iso_timestamp()
+            await container.upsert_item(session_item)
+        except Exception:
+            # Session update is optional, don't fail if it doesn't work
+            pass
         
         # Upsert the updated message
         await container.upsert_item(message_item)
