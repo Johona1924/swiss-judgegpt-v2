@@ -124,8 +124,7 @@ class ChatReadRetrieveReadApproach(ChatApproach):
         # Full text search uses Lucene Simple Query Parser https://lucene.apache.org/core/6_6_1/queryparser/org/apache/lucene/queryparser/simple/SimpleQueryParser.html
         # The current implementation uses '|' to delimit different phrasings or languages in the search query. For simplicity, we delete those, as they have no meaning.
         try:
-            query_text = query_text.replace("|", "")
-            special_chars = r'+|"()\'\\'
+            special_chars = r'+|()\'\\' #removed double quote from special characters. Because double quotes are needed for phrase queries in Azure AI Search full text search. https://learn.microsoft.com/en-us/azure/search/search-lucene-query-architecture#stage-2-lexical-analysis
             pattern = re.compile(f'([{re.escape(special_chars)}])')
             return pattern.sub(r'\\\1', query_text)
         except Exception as e:
