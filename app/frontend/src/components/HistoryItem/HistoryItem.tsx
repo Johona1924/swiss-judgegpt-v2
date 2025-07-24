@@ -29,9 +29,9 @@ export function HistoryItem({ item, onSelect, onDelete }: HistoryItemProps) {
             <button onClick={() => onSelect(item.id)} className={styles.historyItemButton}>
                 <div className={styles.historyItemTitle}>{item.title}</div>
             </button>
-            <button onClick={() => setIsModalOpen(true)} className={styles.deleteButton} aria-label="delete this chat history">
+            {/* <button onClick={() => setIsModalOpen(true)} className={styles.deleteButton} aria-label="delete this chat history">
                 <Delete24Regular className={styles.deleteIcon} />
-            </button>
+            </button> */}
             <DeleteHistoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleDelete} />
         </div>
     );
