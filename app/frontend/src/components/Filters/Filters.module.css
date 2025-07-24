@@ -1,0 +1,13 @@
+.settingsSeparator {
+    margin-top: 0.75rem;
+}
+
+.yearFilterContainer {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.yearFilterContainer > * {
+    flex: 1;
+}

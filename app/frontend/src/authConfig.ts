@@ -90,7 +90,10 @@ const tokenRequest = authSetup.tokenRequest;
 
 // Build an absolute redirect URI using the current window's location and the relative redirect URI from auth setup
 export const getRedirectUri = () => {
-    return window.location.origin + authSetup.msalConfig.auth.redirectUri;
+    if (authSetup.msalConfig?.auth?.redirectUri) {
+        return window.location.origin + authSetup.msalConfig.auth.redirectUri;
+    }
+    return undefined;
 };
 
 // Cache the app services token if it's available
@@ -193,10 +196,14 @@ export const checkLoggedIn = async (client: IPublicClientApplication | undefined
 // Get an access token for use with the API server.
 // ID token received when logging in may not be used for this purpose because it has the incorrect audience
 // Use the access token from app services login if available
-export const getToken = async (client: IPublicClientApplication): Promise<string | undefined> => {
+export const getToken = async (client: IPublicClientApplication | undefined): Promise<string | undefined> => {
     const appServicesToken = await getAppServicesToken();
     if (appServicesToken) {
         return Promise.resolve(appServicesToken.access_token);
+    }
+
+    if (!client || !tokenRequest) {
+        return undefined;
     }
 
     return client
@@ -214,13 +221,15 @@ export const getToken = async (client: IPublicClientApplication): Promise<string
 /**
  * Retrieves the username of the active account.
  * If no active account is found, attempts to retrieve the username from the app services login token if available.
- * @param {IPublicClientApplication} client - The MSAL public client application instance.
+ * @param {IPublicClientApplication | undefined} client - The MSAL public client application instance, or undefined if not available.
  * @returns {Promise<string | null>} The username of the active account, or null if no username is found.
  */
-export const getUsername = async (client: IPublicClientApplication): Promise<string | null> => {
-    const activeAccount = client.getActiveAccount();
-    if (activeAccount) {
-        return activeAccount.username;
+export const getUsername = async (client: IPublicClientApplication | undefined): Promise<string | null> => {
+    if (client) {
+        const activeAccount = client.getActiveAccount();
+        if (activeAccount) {
+            return activeAccount.username;
+        }
     }
 
     const appServicesToken = await getAppServicesToken();
@@ -234,13 +243,15 @@ export const getUsername = async (client: IPublicClientApplication): Promise<str
 /**
  * Retrieves the token claims of the active account.
  * If no active account is found, attempts to retrieve the token claims from the app services login token if available.
- * @param {IPublicClientApplication} client - The MSAL public client application instance.
+ * @param {IPublicClientApplication | undefined} client - The MSAL public client application instance, or undefined if not available.
  * @returns {Promise<Record<string, unknown> | undefined>} A promise that resolves to the token claims of the active account, the user claims from the app services login token, or undefined if no claims are found.
  */
-export const getTokenClaims = async (client: IPublicClientApplication): Promise<Record<string, unknown> | undefined> => {
-    const activeAccount = client.getActiveAccount();
-    if (activeAccount) {
-        return activeAccount.idTokenClaims;
+export const getTokenClaims = async (client: IPublicClientApplication | undefined): Promise<Record<string, unknown> | undefined> => {
+    if (client) {
+        const activeAccount = client.getActiveAccount();
+        if (activeAccount) {
+            return activeAccount.idTokenClaims;
+        }
     }
 
     const appServicesToken = await getAppServicesToken();

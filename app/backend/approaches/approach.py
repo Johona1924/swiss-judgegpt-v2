@@ -50,6 +50,11 @@ class Document:
     score: Optional[float] = None
     reranker_score: Optional[float] = None
     search_agent_query: Optional[str] = None
+    fulltext_search_query: Optional[str] = None
+    # Filter metadata
+    applied_filter: Optional[str] = None
+    # Multilingual search metadata
+    language: Optional[str] = None
 
     def serialize_for_results(self) -> dict[str, Any]:
         result_dict = {
@@ -75,6 +80,9 @@ class Document:
             "score": self.score,
             "reranker_score": self.reranker_score,
             "search_agent_query": self.search_agent_query,
+            "fulltext_search_query": self.fulltext_search_query,
+            "language": self.language,
+            "applied_filter": self.applied_filter
         }
         return result_dict
 
@@ -177,12 +185,22 @@ class Approach(ABC):
     def build_filter(self, overrides: dict[str, Any], auth_claims: dict[str, Any]) -> Optional[str]:
         include_category = overrides.get("include_category")
         exclude_category = overrides.get("exclude_category")
+        year_from = overrides.get("year_from")
+        year_to = overrides.get("year_to")
         security_filter = self.auth_helper.build_security_filters(overrides, auth_claims)
         filters = []
         if include_category:
             filters.append("category eq '{}'".format(include_category.replace("'", "''")))
         if exclude_category:
             filters.append("category ne '{}'".format(exclude_category.replace("'", "''")))
+        if year_from is not None:
+            # Convert year to DateTime filter - assumes the year field is a DateTimeOffset
+            # Filter for dates >= January 1st of the from year
+            filters.append("year ge {}".format(f"{year_from}-01-01T00:00:00Z"))
+        if year_to is not None:
+            # Convert year to DateTime filter - assumes the year field is a DateTimeOffset
+            # Filter for dates <= December 31st of the to year
+            filters.append("year le {}".format(f"{year_to}-12-31T23:59:59Z"))
         if security_filter:
             filters.append(security_filter)
         return None if len(filters) == 0 else " and ".join(filters)
@@ -200,6 +218,8 @@ class Approach(ABC):
         minimum_search_score: Optional[float] = None,
         minimum_reranker_score: Optional[float] = None,
         use_query_rewriting: Optional[bool] = None,
+        search_fields: Optional[list[str]] = None, # If left empty, Azure AI Search searches all 'searchable' fields
+        content_field_name : Optional[str] = None
     ) -> list[Document]:
         search_text = query_text if use_text_search else ""
         search_vectors = vectors if use_vector_search else []
@@ -208,6 +228,7 @@ class Approach(ABC):
                 search_text=search_text,
                 filter=filter,
                 top=top,
+                search_fields=search_fields,
                 query_caption="extractive|highlight-false" if use_semantic_captions else None,
                 query_rewrites="generative" if use_query_rewriting else None,
                 vector_queries=search_vectors,
@@ -222,6 +243,7 @@ class Approach(ABC):
                 search_text=search_text,
                 filter=filter,
                 top=top,
+                search_fields=search_fields,
                 vector_queries=search_vectors,
             )
 
@@ -231,12 +253,15 @@ class Approach(ABC):
                 documents.append(
                     Document(
                         id=document.get("id"),
-                        content=document.get("content"),
+                        content=document.get(content_field_name) if content_field_name else document.get("content"),
                         category=document.get("category"),
                         sourcepage=document.get("sourcepage"),
                         sourcefile=document.get("sourcefile"),
                         oids=document.get("oids"),
                         groups=document.get("groups"),
+                        language=document.get("language"),
+                        fulltext_search_query=search_text,
+                        applied_filter=filter,
                         captions=cast(list[QueryCaptionResult], document.get("@search.captions")),
                         score=document.get("@search.score"),
                         reranker_score=document.get("@search.reranker_score"),

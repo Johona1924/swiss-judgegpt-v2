@@ -1,5 +1,6 @@
 from collections.abc import Awaitable
 from typing import Any, Callable, Optional, Union, cast
+import re
 
 from azure.search.documents.aio import SearchClient
 from azure.storage.blob.aio import ContainerClient

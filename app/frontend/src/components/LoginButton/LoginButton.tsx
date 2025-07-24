@@ -3,14 +3,15 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslation } from "react-i18next";
 
 import styles from "./LoginButton.module.css";
-import { getRedirectUri, loginRequest, appServicesLogout, getUsername, checkLoggedIn } from "../../authConfig";
+import { getRedirectUri, loginRequest, appServicesLogout, getUsername, checkLoggedIn, msalConfig } from "../../authConfig";
 import { useState, useEffect, useContext } from "react";
 import { LoginContext } from "../../loginContext";
 
 export const LoginButton = () => {
-    const { instance } = useMsal();
+    const msalContext = msalConfig ? useMsal() : null;
+    const instance = msalContext?.instance;
     const { loggedIn, setLoggedIn } = useContext(LoginContext);
-    const activeAccount = instance.getActiveAccount();
+    const activeAccount = instance?.getActiveAccount();
     const [username, setUsername] = useState("");
     const { t } = useTranslation();
 
@@ -23,6 +24,10 @@ export const LoginButton = () => {
     }, []);
 
     const handleLoginPopup = () => {
+        if (!instance || !loginRequest) {
+            console.error("MSAL instance or login request not available");
+            return;
+        }
         /**
          * When using popup and silent APIs, we recommend setting the redirectUri to a blank page or a page
          * that does not implement MSAL. Keep in mind that all redirect routes must be registered with the application
@@ -38,9 +43,8 @@ export const LoginButton = () => {
                 setLoggedIn(await checkLoggedIn(instance));
                 setUsername((await getUsername(instance)) ?? "");
             });
-    };
-    const handleLogoutPopup = () => {
-        if (activeAccount) {
+    };    const handleLogoutPopup = () => {
+        if (activeAccount && instance) {
             instance
                 .logoutPopup({
                     mainWindowRedirectUri: "/", // redirects the top level app after logout
@@ -55,6 +59,12 @@ export const LoginButton = () => {
             appServicesLogout();
         }
     };
+
+    // Don't render login button if MSAL is not configured and we're not using app services
+    if (!msalConfig && !loggedIn) {
+        return null;
+    }
+
     return (
         <DefaultButton
             text={loggedIn ? `${t("logout")}\n${username}` : `${t("login")}`}

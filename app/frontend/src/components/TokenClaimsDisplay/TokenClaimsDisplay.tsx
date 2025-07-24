@@ -10,7 +10,7 @@ import {
     createTableColumn,
     TableColumnDefinition
 } from "@fluentui/react-table";
-import { getTokenClaims } from "../../authConfig";
+import { getTokenClaims, msalConfig } from "../../authConfig";
 import { useState, useEffect } from "react";
 
 type Claim = {
@@ -19,17 +19,31 @@ type Claim = {
 };
 
 export const TokenClaimsDisplay = () => {
-    const { instance } = useMsal();
-    const activeAccount = instance.getActiveAccount();
+    // Only use MSAL hooks when msalConfig is available
+    const msalContext = msalConfig ? useMsal() : null;
+    const instance = msalContext?.instance;
+    const activeAccount = instance?.getActiveAccount();
     const [claims, setClaims] = useState<Record<string, unknown> | undefined>(undefined);
 
     useEffect(() => {
-        const fetchClaims = async () => {
-            setClaims(await getTokenClaims(instance));
-        };
+        if (instance) {
+            const fetchClaims = async () => {
+                setClaims(await getTokenClaims(instance));
+            };
 
-        fetchClaims();
-    }, []);
+            fetchClaims();
+        }
+    }, [instance]);
+
+    // Don't render anything if MSAL is not configured
+    if (!msalConfig || !instance) {
+        return (
+            <div>
+                <Label>ID Token Claims</Label>
+                <p>Token claims are not available when using custom authentication providers.</p>
+            </div>
+        );
+    }
 
     const ToString = (a: string | any) => {
         if (typeof a === "string") {

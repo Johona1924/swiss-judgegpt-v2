@@ -1,4 +1,11 @@
 $AZURE_USE_AUTHENTICATION = (azd env get-value AZURE_USE_AUTHENTICATION)
+$USE_AUTH0_AUTHENTICATION = (azd env get-value USE_AUTH0_AUTHENTICATION)
+
+if ($USE_AUTH0_AUTHENTICATION -eq "true") {
+  Write-Host "USE_AUTH0_AUTHENTICATION is set to true. Skipping Microsoft Entra application updates."
+  Exit 0
+}
+
 if ($AZURE_USE_AUTHENTICATION -ne "true") {
   Exit 0
 }

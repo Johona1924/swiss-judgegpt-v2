@@ -52,6 +52,9 @@ def authenticated(route_fn: _C) -> _C:
             auth_claims = await auth_helper.get_auth_claims_if_enabled(request.headers)
         except AuthError:
             abort(403)
+        except Exception as error:
+            logging.exception("Error in authentication: %s", error)
+            abort(403)
 
         return await route_fn(auth_claims, *args, **kwargs)
 

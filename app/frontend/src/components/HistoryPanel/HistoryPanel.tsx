@@ -1,5 +1,5 @@
 import { useMsal } from "@azure/msal-react";
-import { getToken, useLogin } from "../../authConfig";
+import { getToken, useLogin, msalConfig } from "../../authConfig";
 import { Panel, PanelType, Spinner } from "@fluentui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HistoryData, HistoryItem } from "../HistoryItem";
@@ -28,7 +28,7 @@ export const HistoryPanel = ({
     const [isLoading, setIsLoading] = useState(false);
     const [hasMoreHistory, setHasMoreHistory] = useState(false);
 
-    const client = useLogin ? useMsal().instance : undefined;
+    const client = useLogin && msalConfig ? useMsal().instance : undefined;
 
     useEffect(() => {
         if (!isOpen) return;

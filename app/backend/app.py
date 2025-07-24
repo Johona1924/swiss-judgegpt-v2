@@ -91,6 +91,7 @@ from config import (
     CONFIG_VECTOR_SEARCH_ENABLED,
 )
 from core.authentication import AuthenticationHelper
+from core.authentication_auth0_helper import Auth0AuthenticationHelper
 from core.sessionhelper import create_session_id
 from decorators import authenticated, authenticated_path
 from error import error_dict, error_response
@@ -102,6 +103,7 @@ from prepdocs import (
 )
 from prepdocslib.filestrategy import UploadUserFileStrategy
 from prepdocslib.listfilestrategy import File
+from core.multilingual_helper import validate_multilingual_search_config
 
 bp = Blueprint("routes", __name__, static_folder="static")
 # Fix Windows registry issue with mimetypes
@@ -457,6 +459,7 @@ async def setup_clients():
 
     AZURE_TENANT_ID = os.getenv("AZURE_TENANT_ID")
     AZURE_USE_AUTHENTICATION = os.getenv("AZURE_USE_AUTHENTICATION", "").lower() == "true"
+    USE_AUTH0_AUTHENTICATION = os.getenv("USE_AUTH0_AUTHENTICATION", "").lower() == "true"
     AZURE_ENFORCE_ACCESS_CONTROL = os.getenv("AZURE_ENFORCE_ACCESS_CONTROL", "").lower() == "true"
     AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS = os.getenv("AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS", "").lower() == "true"
     AZURE_ENABLE_UNAUTHENTICATED_ACCESS = os.getenv("AZURE_ENABLE_UNAUTHENTICATED_ACCESS", "").lower() == "true"
@@ -488,6 +491,13 @@ async def setup_clients():
     USE_CHAT_HISTORY_BROWSER = os.getenv("USE_CHAT_HISTORY_BROWSER", "").lower() == "true"
     USE_CHAT_HISTORY_COSMOS = os.getenv("USE_CHAT_HISTORY_COSMOS", "").lower() == "true"
     USE_AGENTIC_RETRIEVAL = os.getenv("USE_AGENTIC_RETRIEVAL", "").lower() == "true"
+
+    # Validate authentication configuration
+    if AZURE_USE_AUTHENTICATION and USE_AUTH0_AUTHENTICATION:
+        raise ValueError("AZURE_USE_AUTHENTICATION and USE_AUTH0_AUTHENTICATION cannot both be true. Choose one authentication method.")
+    
+    if USE_CHAT_HISTORY_COSMOS and not (AZURE_USE_AUTHENTICATION or USE_AUTH0_AUTHENTICATION):
+        raise ValueError("USE_CHAT_HISTORY_COSMOS requires either AZURE_USE_AUTHENTICATION or USE_AUTH0_AUTHENTICATION to be true.")
 
     # WEBSITE_HOSTNAME is always set by App Service, RUNNING_IN_PRODUCTION is set in main.bicep
     RUNNING_ON_AZURE = os.getenv("WEBSITE_HOSTNAME") is not None or os.getenv("RUNNING_IN_PRODUCTION") is not None
@@ -534,6 +544,22 @@ async def setup_clients():
         f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net", AZURE_STORAGE_CONTAINER, credential=azure_credential
     )
 
+    # Validate and configure multilingual search settings
+    ENABLE_MULTILINGUAL_SEARCH = os.getenv("ENABLE_MULTILINGUAL_SEARCH", "false").lower() == "true"
+    current_app.logger.info(f"ENABLE_MULTILINGUAL_SEARCH set to {ENABLE_MULTILINGUAL_SEARCH}")
+
+    CONTENT_LANGUAGE = os.getenv("CONTENT_LANGUAGE")
+
+    # Validate multilingual search configuration
+    await validate_multilingual_search_config(
+        enable_multilingual=ENABLE_MULTILINGUAL_SEARCH,
+        search_endpoint=AZURE_SEARCH_ENDPOINT,
+        search_index=AZURE_SEARCH_INDEX,
+        azure_credential=azure_credential,
+        content_language=CONTENT_LANGUAGE,
+        app_logger=current_app.logger
+    )
+
     # Set up authentication helper
     search_index = None
     if AZURE_USE_AUTHENTICATION:
@@ -544,17 +570,20 @@ async def setup_clients():
         )
         search_index = await search_index_client.get_index(AZURE_SEARCH_INDEX)
         await search_index_client.close()
-    auth_helper = AuthenticationHelper(
-        search_index=search_index,
-        use_authentication=AZURE_USE_AUTHENTICATION,
-        server_app_id=AZURE_SERVER_APP_ID,
-        server_app_secret=AZURE_SERVER_APP_SECRET,
-        client_app_id=AZURE_CLIENT_APP_ID,
-        tenant_id=AZURE_AUTH_TENANT_ID,
-        require_access_control=AZURE_ENFORCE_ACCESS_CONTROL,
-        enable_global_documents=AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS,
-        enable_unauthenticated_access=AZURE_ENABLE_UNAUTHENTICATED_ACCESS,
-    )
+        auth_helper = AuthenticationHelper(
+            search_index=search_index,
+            use_authentication=AZURE_USE_AUTHENTICATION,
+            server_app_id=AZURE_SERVER_APP_ID,
+            server_app_secret=AZURE_SERVER_APP_SECRET,
+            client_app_id=AZURE_CLIENT_APP_ID,
+            tenant_id=AZURE_AUTH_TENANT_ID,
+            require_access_control=AZURE_ENFORCE_ACCESS_CONTROL,
+            enable_global_documents=AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS,
+            enable_unauthenticated_access=AZURE_ENABLE_UNAUTHENTICATED_ACCESS,
+        )
+    elif USE_AUTH0_AUTHENTICATION:
+        current_app.logger.info("USE_AUTH0_AUTHENTICATION is true, setting up Auth0 authentication helper")
+        auth_helper = Auth0AuthenticationHelper(use_auth0_authentication=USE_AUTH0_AUTHENTICATION)
 
     if USE_USER_UPLOAD:
         current_app.logger.info("USE_USER_UPLOAD is true, setting up user upload feature")
