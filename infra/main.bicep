@@ -905,10 +905,7 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if ((us
                   path: '/session_id/?'
                 }
                 {
-                  path: '/updatedAt/?'
-                }
-                {
-                  path: '/createdAt/?'
+                  path: '/timestamp/?'
                 }
                 {
                   path: '/type/?'
@@ -918,7 +915,11 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if ((us
                 {
                   path: '/*'
                 }
+                {
+                  path: '/"_etag"/?'
+                }
               ]
+              fullTextIndexes: []
             }
           }
         ]
