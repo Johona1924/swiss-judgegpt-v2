@@ -17,7 +17,8 @@ import {
     ResponseMessage,
     VectorFields,
     GPT4VInput,
-    SpeechConfig
+    SpeechConfig,
+    Feedback
 } from "../../api";
 import { Answer, AnswerError, AnswerLoading } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -83,6 +84,8 @@ const Chat = () => {
     const [answers, setAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
     const [streamedAnswers, setStreamedAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
     const [speechUrls, setSpeechUrls] = useState<(string | null)[]>([]);
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [feedbackState, setFeedbackState] = useState<{ [key: number]: Feedback }>({});
 
     const [showGPT4VOptions, setShowGPT4VOptions] = useState<boolean>(false);
     const [showSemanticRankerOption, setShowSemanticRankerOption] = useState<boolean>(false);
@@ -262,8 +265,9 @@ const Chat = () => {
                 const parsedResponse: ChatAppResponse = await handleAsyncRequest(question, answers, response.body);
                 setAnswers([...answers, [question, parsedResponse]]);
                 if (typeof parsedResponse.session_state === "string" && parsedResponse.session_state !== "") {
+                    setCurrentSessionId(parsedResponse.session_state);
                     const token = client ? await getToken(client) : undefined;
-                    historyManager.addItem(parsedResponse.session_state, [...answers, [question, parsedResponse]], token);
+                    historyManager.addItem(parsedResponse.session_state, [...answers, [question, parsedResponse as ChatAppResponse]], token);
                 }
             } else {
                 const parsedResponse: ChatAppResponseOrError = await response.json();
@@ -272,6 +276,7 @@ const Chat = () => {
                 }
                 setAnswers([...answers, [question, parsedResponse as ChatAppResponse]]);
                 if (typeof parsedResponse.session_state === "string" && parsedResponse.session_state !== "") {
+                    setCurrentSessionId(parsedResponse.session_state);
                     const token = client ? await getToken(client) : undefined;
                     historyManager.addItem(parsedResponse.session_state, [...answers, [question, parsedResponse as ChatAppResponse]], token);
                 }
@@ -294,6 +299,27 @@ const Chat = () => {
         setStreamedAnswers([]);
         setIsLoading(false);
         setIsStreaming(false);
+        setCurrentSessionId(null);
+        setFeedbackState({});
+    };
+
+    const handleFeedbackUpdate = (messageIndex: number, feedback: Feedback) => {
+        setFeedbackState(prev => ({
+            ...prev,
+            [messageIndex]: feedback
+        }));
+        
+        // Update the feedback in the current answers as well
+        setAnswers(prev => {
+            const updated = [...prev];
+            if (updated[messageIndex] && updated[messageIndex][1]) {
+                updated[messageIndex][1] = {
+                    ...updated[messageIndex][1],
+                    feedback: feedback
+                };
+            }
+            return updated;
+        });
     };
 
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
@@ -461,6 +487,8 @@ const Chat = () => {
                                                 showFollowupQuestions={useSuggestFollowupQuestions && answers.length - 1 === index}
                                                 showSpeechOutputAzure={showSpeechOutputAzure}
                                                 showSpeechOutputBrowser={showSpeechOutputBrowser}
+                                                sessionId={currentSessionId || undefined}
+                                                onFeedbackUpdated={handleFeedbackUpdate}
                                             />
                                         </div>
                                     </div>
@@ -484,6 +512,8 @@ const Chat = () => {
                                                 showFollowupQuestions={useSuggestFollowupQuestions && answers.length - 1 === index}
                                                 showSpeechOutputAzure={showSpeechOutputAzure}
                                                 showSpeechOutputBrowser={showSpeechOutputBrowser}
+                                                sessionId={currentSessionId || undefined}
+                                                onFeedbackUpdated={handleFeedbackUpdate}
                                             />
                                         </div>
                                     </div>

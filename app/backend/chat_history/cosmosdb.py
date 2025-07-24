@@ -55,17 +55,23 @@ async def post_chat_history(auth_claims: dict[str, Any]):
         message_pair_items = []
         # Now insert a message item for each question/response pair:
         for ind, message_pair in enumerate(message_pairs):
-            message_pair_items.append(
-                {
-                    "id": f"{session_id}-{ind}",
-                    "version": current_app.config[CONFIG_COSMOS_HISTORY_VERSION],
-                    "session_id": session_id,
-                    "entra_oid": entra_oid,
-                    "type": "message_pair",
-                    "question": message_pair[0],
-                    "response": message_pair[1],
-                }
-            )
+            message_pair_item = {
+                "id": f"{session_id}-{ind}",
+                "version": current_app.config[CONFIG_COSMOS_HISTORY_VERSION],
+                "session_id": session_id,
+                "entra_oid": entra_oid,
+                "type": "message_pair",
+                "question": message_pair[0],
+                "response": message_pair[1],
+            }
+            
+            # Add feedback if it exists in the response
+            if isinstance(message_pair[1], dict) and "feedback" in message_pair[1]:
+                message_pair_item["feedback"] = message_pair[1]["feedback"]
+            else:
+                message_pair_item["feedback"] = "neutral"
+                
+            message_pair_items.append(message_pair_item)
 
         batch_operations = [("upsert", (session_item,))] + [
             ("upsert", (message_pair_item,)) for message_pair_item in message_pair_items
@@ -153,7 +159,20 @@ async def get_chat_history_session(auth_claims: dict[str, Any], session_id: str)
         message_pairs = []
         async for page in res.by_page():
             async for item in page:
-                message_pairs.append([item["question"], item["response"]])
+                response_with_feedback = item["response"]
+                
+                # If response is a dict, add feedback to it
+                if isinstance(response_with_feedback, dict):
+                    response_with_feedback["feedback"] = item.get("feedback", "neutral")
+                elif isinstance(response_with_feedback, str):
+                    # If response is a string, we need to handle it differently
+                    # For now, keep it as string but add feedback info separately
+                    response_with_feedback = {
+                        "message": {"content": response_with_feedback, "role": "assistant"},
+                        "feedback": item.get("feedback", "neutral")
+                    }
+                
+                message_pairs.append([item["question"], response_with_feedback])
 
         return (
             jsonify(
@@ -167,6 +186,53 @@ async def get_chat_history_session(auth_claims: dict[str, Any], session_id: str)
         )
     except Exception as error:
         return error_response(error, f"/chat_history/sessions/{session_id}")
+
+
+@chat_history_cosmosdb_bp.post("/chat_history/message_feedback")
+@authenticated
+async def update_message_feedback(auth_claims: dict[str, Any]):
+    if not current_app.config[CONFIG_CHAT_HISTORY_COSMOS_ENABLED]:
+        return jsonify({"error": "Chat history not enabled"}), 400
+
+    container: ContainerProxy = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
+    if not container:
+        return jsonify({"error": "Chat history not enabled"}), 400
+
+    entra_oid = auth_claims.get("oid")
+    if not entra_oid:
+        return jsonify({"error": "User OID not found"}), 401
+
+    try:
+        request_json = await request.get_json()
+        session_id = request_json.get("session_id")
+        message_index = request_json.get("message_index")
+        feedback = request_json.get("feedback")
+
+        if not session_id:
+            return jsonify({"error": "session_id is required"}), 400
+        if message_index is None:
+            return jsonify({"error": "message_index is required"}), 400
+        if not feedback:
+            return jsonify({"error": "feedback is required"}), 400
+
+        message_id = f"{session_id}-{message_index}"
+        
+        # Read the existing message
+        message_item = await container.read_item(item=message_id, partition_key=[entra_oid, session_id])
+        
+        # Update the feedback
+        message_item["feedback"] = feedback
+        
+        # Upsert the updated message
+        await container.upsert_item(message_item)
+
+        return jsonify({
+            "message": f"Successfully updated message with feedback {feedback}",
+            "message_id": message_id,
+        }), 200
+
+    except Exception as error:
+        return error_response(error, "/chat_history/message_feedback")
 
 
 @chat_history_cosmosdb_bp.delete("/chat_history/sessions/<session_id>")

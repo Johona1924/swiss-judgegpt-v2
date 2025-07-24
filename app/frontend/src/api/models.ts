@@ -16,6 +16,22 @@ export const enum VectorFields {
     TextAndImageEmbeddings = "textAndImageEmbeddings"
 }
 
+export enum Feedback {
+    Neutral = 'neutral',
+    Positive = 'positive',
+    Negative = 'negative',
+    MissingCitation = 'missing_citation',
+    WrongCitation = 'wrong_citation',
+    OutOfScope = 'out_of_scope',
+    InaccurateOrIrrelevant = 'inaccurate_or_irrelevant',
+    OtherUnhelpful = 'other_unhelpful',
+    HateSpeech = 'hate_speech',
+    Violent = 'violent',
+    Sexual = 'sexual',
+    Manipulative = 'manipulative',
+    OtherHarmful = 'other_harmful'
+}
+
 export type ChatAppRequestOverrides = {
     retrieval_mode?: RetrievalMode;
     semantic_ranker?: boolean;
@@ -76,6 +92,7 @@ export type ChatAppResponse = {
     delta: ResponseMessage;
     context: ResponseContext;
     session_state: any;
+    feedback?: Feedback;
 };
 
 export type ChatAppRequestContext = {

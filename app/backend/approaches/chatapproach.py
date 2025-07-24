@@ -107,6 +107,7 @@ class ChatApproach(Approach, ABC):
         # Assume last thought is for generating answer
         if self.include_token_usage and extra_info.thoughts and chat_completion_response.usage:
             extra_info.thoughts[-1].update_token_usage(chat_completion_response.usage)
+        
         chat_app_response = {
             "message": {"content": content, "role": role},
             "context": extra_info,
