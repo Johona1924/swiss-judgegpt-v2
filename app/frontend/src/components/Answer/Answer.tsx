@@ -1,4 +1,4 @@
-import { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, useEffect } from "react";
 import { Stack, IconButton, Dialog, DefaultButton, Text, Checkbox } from "@fluentui/react";
 import { ThumbLike20Filled, ThumbDislike20Filled } from "@fluentui/react-icons";
 import { useTranslation } from "react-i18next";
@@ -60,6 +60,11 @@ export const Answer = ({
     const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
     const [showReportInappropriateFeedback, setShowReportInappropriateFeedback] = useState(false);
     const [negativeFeedbackList, setNegativeFeedbackList] = useState<Feedback[]>([]);
+    
+    // Sync feedback state when answer prop changes
+    useEffect(() => {
+        setFeedbackState(answer.feedback || Feedback.Neutral);
+    }, [answer.feedback]);
     
     const { instance } = useMsal();
 

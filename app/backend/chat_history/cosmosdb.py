@@ -25,6 +25,17 @@ def current_iso_timestamp():
     return datetime.utcnow().isoformat() + "Z"
 
 
+def iso_to_unix_timestamp(iso_string: str) -> int:
+    """Convert ISO datetime string to Unix timestamp in milliseconds"""
+    try:
+        # Remove the 'Z' suffix and parse the datetime
+        dt = datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
+        return int(dt.timestamp() * 1000)
+    except (ValueError, AttributeError):
+        # Fallback to current time if parsing fails
+        return int(time.time() * 1000)
+
+
 @chat_history_cosmosdb_bp.post("/chat_history")
 @authenticated
 async def post_chat_history(auth_claims: dict[str, Any]):
@@ -69,6 +80,7 @@ async def post_chat_history(auth_claims: dict[str, Any]):
             "title": title,
             "createdAt": session_timestamps["createdAt"],
             "updatedAt": session_timestamps["updatedAt"],
+            "timestamp": iso_to_unix_timestamp(session_timestamps["updatedAt"]),  # For frontend compatibility
         }
 
         message_pair_items = []
@@ -133,7 +145,7 @@ async def get_chat_history_sessions(auth_claims: dict[str, Any]):
         continuation_token = request.args.get("continuation_token")
 
         res = container.query_items(
-            query="SELECT * FROM c WHERE c.entra_oid = @entra_oid AND c.type = @type ORDER BY c.updatedAt DESC",
+            query="SELECT c.id, c.entra_oid, c.title, c.timestamp, c.updatedAt, c.createdAt FROM c WHERE c.entra_oid = @entra_oid AND c.type = @type ORDER BY c.timestamp DESC",
             parameters=[dict(name="@entra_oid", value=entra_oid), dict(name="@type", value="session")],
             partition_key=[entra_oid],
             max_item_count=count,
@@ -149,11 +161,17 @@ async def get_chat_history_sessions(auth_claims: dict[str, Any]):
 
             # Build response from ordered results
             async for item in page:
+                # Use stored timestamp if available, otherwise convert from updatedAt
+                timestamp = item.get("timestamp")
+                if timestamp is None:
+                    timestamp = iso_to_unix_timestamp(item.get("updatedAt", ""))
+                
                 sessions.append(
                     {
                         "id": item.get("id"),
                         "entra_oid": item.get("entra_oid"),
                         "title": item.get("title", "untitled"),
+                        "timestamp": timestamp,
                         "updatedAt": item.get("updatedAt"),
                         "createdAt": item.get("createdAt"),
                     }
@@ -193,18 +211,9 @@ async def get_chat_history_session(auth_claims: dict[str, Any], session_id: str)
         message_pairs = []
         async for page in res.by_page():
             async for item in page:
-                response_with_feedback = item["response"]
-                
-                # If response is a dict, add feedback to it
-                if isinstance(response_with_feedback, dict):
-                    response_with_feedback["feedback"] = item.get("feedback", "neutral")
-                elif isinstance(response_with_feedback, str):
-                    # If response is a string, we need to handle it differently
-                    # For now, keep it as string but add feedback info separately
-                    response_with_feedback = {
-                        "message": {"content": response_with_feedback, "role": "assistant"},
-                        "feedback": item.get("feedback", "neutral")
-                    }
+                # Create response with feedback included
+                response_with_feedback = dict(item["response"])  # Ensure proper copying
+                response_with_feedback["feedback"] = item.get("feedback", "neutral")
                 
                 message_pairs.append([item["question"], response_with_feedback])
 
@@ -262,6 +271,7 @@ async def update_message_feedback(auth_claims: dict[str, Any]):
         try:
             session_item = await container.read_item(item=session_id, partition_key=[entra_oid, session_id])
             session_item["updatedAt"] = current_iso_timestamp()
+            session_item["timestamp"] = iso_to_unix_timestamp(session_item["updatedAt"])  # Update timestamp for frontend compatibility
             await container.upsert_item(session_item)
         except Exception:
             # Session update is optional, don't fail if it doesn't work

@@ -566,10 +566,28 @@ const Chat = () => {
                         isOpen={isHistoryPanelOpen}
                         notify={!isStreaming && !isLoading}
                         onClose={() => setIsHistoryPanelOpen(false)}
-                        onChatSelected={answers => {
+                        onChatSelected={(answers, sessionId) => {
                             if (answers.length === 0) return;
+                            
+                            // Clear existing chat state first to avoid pollution
+                            clearChat();
+                            
+                            // Set the answers
                             setAnswers(answers);
                             lastQuestionRef.current = answers[answers.length - 1][0];
+                            
+                            // Set the session ID for feedback purposes
+                            setCurrentSessionId(sessionId);
+                            
+                            // Extract and set feedback state from loaded answers
+                            const feedbackMap: { [key: number]: Feedback } = {};
+                            answers.forEach((answer, index) => {
+                                const response = answer[1];
+                                if (response && response.feedback) {
+                                    feedbackMap[index] = response.feedback as Feedback;
+                                }
+                            });
+                            setFeedbackState(feedbackMap);
                         }}
                     />
                 )}
