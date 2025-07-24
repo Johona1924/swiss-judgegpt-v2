@@ -905,7 +905,10 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if ((us
                   path: '/session_id/?'
                 }
                 {
-                  path: '/timestamp/?'
+                  path: '/updatedAt/?'
+                }
+                {
+                  path: '/createdAt/?'
                 }
                 {
                   path: '/type/?'
