@@ -19,10 +19,10 @@ sample:
     #user_query : Was ist die grosse Einschränkung des Produktehaftpflichtrechts aktuell? Welche Schäden werden laut BGer übernommen und welche nicht?
     #user_query : In KI Fällen wir der Nachweis des Verschuldens sowie der Kausalität wahnsinnig schwierig für den Kläger. Welche Rechtsprechungsinstrumente des Bundesgericht könnten dabei helfen?
     #user_query : Quand existe-t-il un intérêt suffisant pour intenter une action en constatation en vertu de l'article 88 du code de procédure civile ?
-    user_query : Quando è sufficiente l'interesse a una sentenza dichiarativa per un'azione ai sensi dell'art. 88 ZPO?
+    #user_query : Quando è sufficiente l'interesse a una sentenza dichiarativa per un'azione ai sensi dell'art. 88 ZPO?
     #user_query: Welche Gesetzesartikel werden in diesem Entscheid erwähnt?
     #user_query: Was bedeuted eigenhändige Niederschrift genau?
-    #user_query: Handelt es sich bei Art. 404 Abs. 1 OR um eine zwingende Norm?
+    user_query: Handelt es sich bei Art. 404 Abs. 1 OR um eine zwingende Norm?
     past_messages:
     #past_messages:
     #    - role: user
@@ -64,7 +64,7 @@ Your task is to analyze the previous conversation and the user's last question i
 * Analyze the previous conversation and the user's last question.
 * Discern the user's intent. Discern if the last question refers to case law, code, or court decision citations mentioned in previous questions or replies.
 * Search the knowledge base by formulating an effective search query, capturing the user's intent and all relevant citations.
-* If you cannot generate a search query, return just the number 0.
+* ENCLOSE ALL CITATIONS IN DOUBLE QUOTES (" "), e.g. ""BGE 146 IV 226" or "Art. 141 al. 2 CPP".
 * ** MAKE SURE that you formulate a search query for ALL THREE languages GERMAN, FRENCH, ITALIAN. ** 
 
 ### EXAMPLE DIALOGUE – FOR CONTEXT ONLY – DO NOT CONTINUE
@@ -81,19 +81,19 @@ Your task is to analyze the previous conversation and the user's last question i
       {
         "name": "search_sources_DE",
         "arguments": {
-          "search_query": "Ist eine Dashcam vor Gericht als Beweismittel zulässig? | Zulässigkeit von Dashcam-Aufnahmen als Beweismittel | Dashcam Beweismittel Gericht"
+          "search_query": 'Ist eine Dashcam vor Gericht als Beweismittel zulässig? Zulässigkeit von Dashcam-Aufnahmen als Beweismittel. Dashcam Beweismittel Gericht'
         }
       },
       {
         "name": "search_sources_FR",
         "arguments": {
-          "search_query": "Une dashcam est-elle admissible comme preuve devant un tribunal? | Admissibilité des enregistrements Dashcam comme preuve | Dashcam preuve tribunal"
+          "search_query": 'Une dashcam est-elle admissible comme preuve devant un tribunal? Admissibilité des enregistrements Dashcam comme preuve. Dashcam preuve tribunal'
         }
       },
       {
         "name": "search_sources_IT",
         "arguments": {
-          "search_query": "Una dashcam è ammissibile come prova in tribunale? | Ammissibilità delle registrazioni delle dashcam come prova | Prova dashcam tribunale"
+          "search_query": 'Una dashcam è ammissibile come prova in tribunale? Ammissibilità delle registrazioni delle dashcam come prova. Prova dashcam tribunale'
         }
       }
     ],
@@ -112,19 +112,19 @@ Your task is to analyze the previous conversation and the user's last question i
       {
         "name": "search_sources_FR",
         "arguments": {
-          "search_query": "ATF 146 IV 226 | Motifs d'illégalité des enregistrements de dashcam | Statut juridique des enregistrements de dashcam dans le BGE 146 IV 226"
+          "search_query": '"ATF 146 IV 226". Motifs d'illégalité des enregistrements de dashcam. Statut juridique des enregistrements de dashcam dans le "BGE 146 IV 226"'
         }
       },
       {
         "name": "search_sources_IT",
         "arguments": {
-          "search_query": "DTF 146 IV 226 |  Motivi di illegittimità delle registrazioni di dashcam | Situazione giuridica delle registrazioni dashcam nella BGE 146 IV 226"
+          "search_query": '"DTF 146 IV 226". Motivi di illegittimità delle registrazioni di dashcam. Situazione giuridica delle registrazioni dashcam nella "BGE 146 IV 226"'
         }
       },
       {
         "name": "search_sources_DE",
         "arguments": {
-          "search_query": "BGE 146 IV 226 | Gründe für die Rechtswidrigkeit von Dashcam-Aufnahmen | Rechtslage zu Dashcam-Aufnahmen in BGE 146 IV 226"
+          "search_query": '"BGE 146 IV 226". Gründe für die Rechtswidrigkeit von Dashcam-Aufnahmen. Rechtslage zu Dashcam-Aufnahmen in "BGE 146 IV 226"'
         }
       }
     ],
@@ -145,19 +145,19 @@ Your task is to analyze the previous conversation and the user's last question i
       {
         "name": "search_sources_IT",
         "arguments": {
-          "search_query": "Ponderazione degli interessi in materia di prove | Art. 141 comma 2 CPP e ponderazione degli interessi | Illegittimità delle registrazioni delle videocamere da cruscotto e ponderazione degli interessi"
-        }
+          "search_query": 'Ponderazione degli interessi in materia di prove. "Art. 141 comma 2 CPP" e ponderazione degli interessi. Illegittimità delle registrazioni delle videocamere da cruscotto e ponderazione degli interessi'
+        }"
       },
       {
         "name": "search_sources_DE",
         "arguments": {
-          "search_query": "Interessenabwägung bei Beweismitteln | Art. 141 Abs. 2 StPO und Interessenabwägung | Rechtswidrigkeit von Dashcam-Aufnahmen und Interessenabwägung"
+          "search_query": 'Interessenabwägung bei Beweismitteln. "Art. 141 Abs. 2 StPO" und Interessenabwägung. Rechtswidrigkeit von Dashcam-Aufnahmen und Interessenabwägung'
         }
       },
       {
         "name": "search_sources_FR",
         "arguments": {
-          "search_query": "Pesée des intérêts en matière de moyens de preuve | Art. 141 al. 2 CPP et pesée des intérêts | Ilégalité des enregistrements Dashcam et pesée des intérêts"
+          "search_query": 'Pesée des intérêts en matière de moyens de preuve. "Art. 141 al. 2 CPP" et pesée des intérêts. Ilégalité des enregistrements Dashcam et pesée des intérêts'
         }
       }
     ],
@@ -166,7 +166,9 @@ Your task is to analyze the previous conversation and the user's last question i
 ]
 ```
 ### END OF EXAMPLE
-* Never answer the question directly. ALWAYS search your attached knwoledge base in ALL THREE languages GERMAN, ITALIAN, FRENCH.
+* Never answer the question directly. 
+* ALWAYS search your attached knwoledge base in ALL THREE languages GERMAN, ITALIAN, FRENCH.
+* ALWAYS enclose all citations in double quotes, e.g. "1A_39/2007", "Art. 92 BGG", "BGE 144 III 475", "Art. 12 lit. a BGFA", "SJ 2001 I S. 221"
 
 
 {# ================== SINGLE USER MESSAGE =================== #}
