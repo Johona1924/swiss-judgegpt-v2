@@ -74,9 +74,7 @@ class ChatApproach(Approach, ABC):
                         arg = json.loads(function.arguments)
                         search_query = arg.get("search_query", "")
                         if search_query and search_query.strip() != self.NO_RESPONSE:
-                            # Clean up the query (remove pipe separators)
-                            cleaned_query = search_query.replace("|", " ").strip()
-                            queries[lang_code] = cleaned_query
+                            queries[lang_code] = search_query
                     except json.JSONDecodeError:
                         logging.warning(f"Failed to parse tool arguments for {function.name}")
                         continue
