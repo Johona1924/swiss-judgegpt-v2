@@ -217,7 +217,7 @@ param authTenantId string = ''
 
 // Used for the optional login and document level access control system
 param useAuthentication bool = false
-param useAuth0Authentication bool = false
+param useAppServiceAuthentication bool = false
 param enforceAccessControl bool = false
 // Force using MSAL app authentication instead of built-in App Service authentication
 // https://learn.microsoft.com/azure/app-service/overview-authentication-authorization
@@ -425,7 +425,7 @@ var appEnvVariables = {
   // Chat history settings
   USE_CHAT_HISTORY_BROWSER: useChatHistoryBrowser
   USE_CHAT_HISTORY_COSMOS: useChatHistoryCosmos
-  AZURE_COSMOSDB_ACCOUNT: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
+  AZURE_COSMOSDB_ACCOUNT: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
   AZURE_CHAT_HISTORY_DATABASE: chatHistoryDatabaseName
   AZURE_CHAT_HISTORY_CONTAINER: chatHistoryContainerName
   AZURE_CHAT_HISTORY_VERSION: chatHistoryVersion
@@ -451,7 +451,7 @@ var appEnvVariables = {
   OPENAI_ORGANIZATION: openAiApiOrganization
   // Optional login and document level access control system
   AZURE_USE_AUTHENTICATION: useAuthentication
-  USE_AUTH0_AUTHENTICATION: useAuth0Authentication
+  USE_APPSERVICE_AUTHENTICATION: useAppServiceAuthentication
   AZURE_ENFORCE_ACCESS_CONTROL: enforceAccessControl
   AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS: enableGlobalDocuments
   AZURE_ENABLE_UNAUTHENTICATED_ACCESS: enableUnauthenticatedAccess
@@ -861,7 +861,7 @@ module userStorage 'core/storage/storage-account.bicep' = if (useUserUpload) {
   }
 }
 
-module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) {
+module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) {
   name: 'cosmosdb'
   scope: cosmosDbResourceGroup
   params: {
@@ -1037,7 +1037,7 @@ module searchSvcContribRoleUser 'core/security/role.bicep' = {
   }
 }
 
-module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) {
+module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
   name: 'cosmosdb-account-contrib-role-user'
   params: {
@@ -1049,14 +1049,14 @@ module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if ((useAuthe
 
 // RBAC for Cosmos DB
 // https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access
-module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = if ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) {
+module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = if ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
   name: 'cosmosdb-data-contrib-role-user'
   params: {
-    databaseAccountName: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
+    databaseAccountName: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
     principalId: principalId
     // Cosmos DB Built-in Data Contributor role
-    roleDefinitionId: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos)
+    roleDefinitionId: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos)
       ? '/${subscription().id}/resourceGroups/${cosmosDb.outputs.resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosDb.outputs.name}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
       : ''
   }
@@ -1147,16 +1147,16 @@ module speechRoleBackend 'core/security/role.bicep' = {
 
 // RBAC for Cosmos DB
 // https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access
-module cosmosDbRoleBackend 'core/security/documentdb-sql-role.bicep' = if ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) {
+module cosmosDbRoleBackend 'core/security/documentdb-sql-role.bicep' = if ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
   name: 'cosmosdb-role-backend'
   params: {
-    databaseAccountName: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
+    databaseAccountName: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
       : acaBackend.outputs.identityPrincipalId
     // Cosmos DB Built-in Data Contributor role
-    roleDefinitionId: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos)
+    roleDefinitionId: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos)
       ? '/${subscription().id}/resourceGroups/${cosmosDb.outputs.resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosDb.outputs.name}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
       : ''
   }
@@ -1212,7 +1212,7 @@ var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget ==
       {
         groupId: 'sql'
         dnsZoneName: 'privatelink.documents.azure.com'
-        resourceIds: ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
+        resourceIds: ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
       }
     ]
   : []
@@ -1236,7 +1236,7 @@ module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && de
 
 // Used to read index definitions (required when using authentication)
 // https://learn.microsoft.com/azure/search/search-security-rbac
-module searchReaderRoleBackend 'core/security/role.bicep' = if (useAuthentication || useAuth0Authentication) {
+module searchReaderRoleBackend 'core/security/role.bicep' = if (useAuthentication || useAppServiceAuthentication) {
   scope: searchServiceResourceGroup
   name: 'search-reader-role-backend'
   params: {
@@ -1337,7 +1337,7 @@ output AZURE_SEARCH_SEMANTIC_RANKER string = actualSearchServiceSemanticRankerLe
 output AZURE_SEARCH_SERVICE_ASSIGNED_USERID string = searchService.outputs.principalId
 output AZURE_SEARCH_FIELD_NAME_EMBEDDING string = searchFieldNameEmbedding
 
-output AZURE_COSMOSDB_ACCOUNT string = ((useAuthentication || useAuth0Authentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
+output AZURE_COSMOSDB_ACCOUNT string = ((useAuthentication || useAppServiceAuthentication) && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
 output AZURE_CHAT_HISTORY_DATABASE string = chatHistoryDatabaseName
 output AZURE_CHAT_HISTORY_CONTAINER string = chatHistoryContainerName
 output AZURE_CHAT_HISTORY_VERSION string = chatHistoryVersion
@@ -1353,7 +1353,7 @@ output AZURE_USERSTORAGE_RESOURCE_GROUP string = storageResourceGroup.name
 output AZURE_AI_PROJECT string = useAiProject ? ai.outputs.projectName : ''
 
 output AZURE_USE_AUTHENTICATION bool = useAuthentication
-output USE_AUTH0_AUTHENTICATION bool = useAuth0Authentication
+output USE_APPSERVICE_AUTHENTICATION bool = useAppServiceAuthentication
 
 output BACKEND_URI string = deploymentTarget == 'appservice' ? backend.outputs.uri : acaBackend.outputs.uri
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = deploymentTarget == 'containerapps'

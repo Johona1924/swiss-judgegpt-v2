@@ -91,7 +91,7 @@ from config import (
     CONFIG_VECTOR_SEARCH_ENABLED,
 )
 from core.authentication import AuthenticationHelper
-from core.authentication_auth0_helper import Auth0AuthenticationHelper
+from core.authentication_appservice import AppServiceAuthenticationHelper
 from core.sessionhelper import create_session_id
 from decorators import authenticated, authenticated_path
 from error import error_dict, error_response
@@ -459,7 +459,7 @@ async def setup_clients():
 
     AZURE_TENANT_ID = os.getenv("AZURE_TENANT_ID")
     AZURE_USE_AUTHENTICATION = os.getenv("AZURE_USE_AUTHENTICATION", "").lower() == "true"
-    USE_AUTH0_AUTHENTICATION = os.getenv("USE_AUTH0_AUTHENTICATION", "").lower() == "true"
+    USE_APPSERVICE_AUTHENTICATION = os.getenv("USE_APPSERVICE_AUTHENTICATION", "").lower() == "true"
     AZURE_ENFORCE_ACCESS_CONTROL = os.getenv("AZURE_ENFORCE_ACCESS_CONTROL", "").lower() == "true"
     AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS = os.getenv("AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS", "").lower() == "true"
     AZURE_ENABLE_UNAUTHENTICATED_ACCESS = os.getenv("AZURE_ENABLE_UNAUTHENTICATED_ACCESS", "").lower() == "true"
@@ -493,11 +493,11 @@ async def setup_clients():
     USE_AGENTIC_RETRIEVAL = os.getenv("USE_AGENTIC_RETRIEVAL", "").lower() == "true"
 
     # Validate authentication configuration
-    if AZURE_USE_AUTHENTICATION and USE_AUTH0_AUTHENTICATION:
-        raise ValueError("AZURE_USE_AUTHENTICATION and USE_AUTH0_AUTHENTICATION cannot both be true. Choose one authentication method.")
+    if AZURE_USE_AUTHENTICATION and USE_APPSERVICE_AUTHENTICATION:
+        raise ValueError("AZURE_USE_AUTHENTICATION and USE_APPSERVICE_AUTHENTICATION cannot both be true. Choose one authentication method.")
     
-    if USE_CHAT_HISTORY_COSMOS and not (AZURE_USE_AUTHENTICATION or USE_AUTH0_AUTHENTICATION):
-        raise ValueError("USE_CHAT_HISTORY_COSMOS requires either AZURE_USE_AUTHENTICATION or USE_AUTH0_AUTHENTICATION to be true.")
+    if USE_CHAT_HISTORY_COSMOS and not (AZURE_USE_AUTHENTICATION or USE_APPSERVICE_AUTHENTICATION):
+        raise ValueError("USE_CHAT_HISTORY_COSMOS requires either AZURE_USE_AUTHENTICATION or USE_APPSERVICE_AUTHENTICATION to be true.")
 
     # WEBSITE_HOSTNAME is always set by App Service, RUNNING_IN_PRODUCTION is set in main.bicep
     RUNNING_ON_AZURE = os.getenv("WEBSITE_HOSTNAME") is not None or os.getenv("RUNNING_IN_PRODUCTION") is not None
@@ -581,9 +581,9 @@ async def setup_clients():
             enable_global_documents=AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS,
             enable_unauthenticated_access=AZURE_ENABLE_UNAUTHENTICATED_ACCESS,
         )
-    elif USE_AUTH0_AUTHENTICATION:
-        current_app.logger.info("USE_AUTH0_AUTHENTICATION is true, setting up Auth0 authentication helper")
-        auth_helper = Auth0AuthenticationHelper(use_auth0_authentication=USE_AUTH0_AUTHENTICATION)
+    elif USE_APPSERVICE_AUTHENTICATION:
+        current_app.logger.info("USE_APPSERVICE_AUTHENTICATION is true, setting up App Service authentication helper")
+        auth_helper = AppServiceAuthenticationHelper(use_appservice_authentication=USE_APPSERVICE_AUTHENTICATION)
 
     if USE_USER_UPLOAD:
         current_app.logger.info("USE_USER_UPLOAD is true, setting up user upload feature")
