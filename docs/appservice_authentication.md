@@ -11,7 +11,6 @@ Azure App Service provides built-in authentication and authorization capabilitie
 ### Required for App Service Authentication
 
 - `USE_APPSERVICE_AUTHENTICATION=true` - Enables Azure App Service built-in authentication
-- `USE_CHAT_HISTORY_COSMOS=true` - Enables CosmosDB chat history storage
 
 ### Validation Rules
 
@@ -47,7 +46,7 @@ Azure App Service provides built-in authentication and authorization capabilitie
    - `X-Ms-Client-Principal-Name`: User's display name
    - `X-Ms-Client-Principal-Idp`: Identity provider name
    - `X-Ms-Client-Principal`: Base64-encoded user claims
-3. **User Identification**: Application extracts `X-Ms-Client-Principal-Id` as the unique user ID
+3. **User Identification**: Application extracts `X-Ms-Client-Principal-Id` as the unique user ID (stored as `user_principal_id` or `oid`). For auth0 identity provider, an example is auth0|507f1f77bcf86cd799439011.
 4. **Chat History Storage**: User ID is used as the partition key for CosmosDB chat history
 
 ### When Running Locally (Development Mode)
@@ -56,6 +55,7 @@ When running locally without App Service authentication:
 - No authentication headers are present in requests
 - Application falls back to a sample user for development purposes
 - Sample user has predefined headers including `X-Ms-Client-Principal-Id`
+- `oid` is set to "00000000-0000-0000-0000-000000000000"
 - This allows testing chat history functionality during local development
 
 ## Key Implementation Details
