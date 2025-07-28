@@ -88,7 +88,7 @@ The application relies on these Azure App Service authentication headers:
 | Application Registration | Required | Not Required |
 | Document Access Control | Supported | Not Supported |
 | Chat History | Supported | Supported |
-| User Upload | Supported | Supported |
+| User Upload | Supported | Untested |
 | Local Development | Token-based | Sample user fallback |
 
 ## Troubleshooting
@@ -104,8 +104,8 @@ The application relies on these Azure App Service authentication headers:
    - Solution: Enable either `AZURE_USE_AUTHENTICATION` or `USE_APPSERVICE_AUTHENTICATION`
 
 3. **Missing User ID in Production**
-   - Error: "No user_principal_id found in App Service authentication headers"
-   - Solution: Ensure App Service authentication is properly configured in Azure portal
+   - Untested behavior, probably will fall back to sample user as well.
+   - TODO : Implement error handling that differentiates between production and local development (see below).
 
 4. **Local Development Issues**
    - Issue: No authentication headers when running locally
