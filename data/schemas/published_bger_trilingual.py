@@ -38,7 +38,7 @@ PUBLISHED_BGER_TRILINGUAL_SCHEMA = {
         "filename": {
             "type": "string",
             "description": "Output filename with underscores (spaces removed)",
-            "pattern": r"^\d+_[IVX]+[AB]?_\d+\.json$",
+            "pattern": "^\\d+_[IVX]+[AB]?_\\d+\\.json$",
             "examples": ["81_II_117.json", "149_I_123.json"]
         },
         "last_updated": {
