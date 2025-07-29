@@ -100,6 +100,81 @@ if [ -z "$slotExists" ]; then
         exit 1
     fi
     echo "Slot '$SlotName' created successfully."
+
+    # Assign system managed identity to the newly created slot
+    echo "Enabling system managed identity for slot '$SlotName'..."
+    az webapp identity assign --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to assign system managed identity to slot." >&2
+        exit 1
+    fi
+
+    # Get the principal ID of the slot's managed identity
+    echo "Getting principal ID for slot managed identity..."
+    slotPrincipalId=$(az webapp identity show --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --query "principalId" -o tsv)
+    if [ $? -ne 0 ] || [ -z "$slotPrincipalId" ]; then
+        echo "Error: Failed to get principal ID for slot managed identity." >&2
+        exit 1
+    fi
+    echo "Slot principal ID: $slotPrincipalId"
+
+    # Assign RBAC roles at resource group level
+    echo "Assigning RBAC roles to slot managed identity..."
+    roles=(
+        "1407120a-92aa-4202-b7e9-c0e197c71c8f"  # Search Index Data Reader
+        "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"  # Cognitive Services OpenAI User
+        "f2dc8367-1007-4938-bd23-fe263f013447"  # Cognitive Services Speech User
+        "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"  # Storage Blob Data Reader
+        "acdd72a7-3385-48ef-bd42-f606fba81ae7"  # Reader
+    )
+
+    for roleId in "${roles[@]}"; do
+        echo "Assigning role $roleId..."
+        maxRetries=3
+        retryDelay=10  # seconds
+        attempt=0
+        success=false
+        while [ "$success" = false ] && [ $attempt -lt $maxRetries ]; do
+            output=$(az role assignment create --assignee "$slotPrincipalId" --role "$roleId" --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup" 2>&1)
+            if [ $? -eq 0 ]; then
+                success=true
+            elif echo "$output" | grep -q "Cannot find user or service principal in graph database"; then
+                attempt=$((attempt + 1))
+                echo "Warning: Principal not found in Graph. Waiting $retryDelay seconds before retrying ($attempt/$maxRetries)..."
+                sleep $retryDelay
+            else
+                echo "Warning: Failed to assign role $roleId to slot managed identity. Output: $output"
+                break
+            fi
+        done
+        if [ "$success" = false ]; then
+            echo "Warning: Failed to assign role $roleId to slot managed identity after $maxRetries attempts. Continuing..."
+        fi
+    done
+
+    # Assign Cosmos DB Built-in Data Contributor role if Cosmos DB is configured
+    if [ -n "$AZURE_COSMOSDB_ACCOUNT" ] && [ "$USE_CHAT_HISTORY_COSMOS" = "true" ]; then
+        echo "Assigning Cosmos DB Built-in Data Contributor role..."
+        cosmosDbAccount="$AZURE_COSMOSDB_ACCOUNT"
+        cosmosDbResourceGroup="${AZURE_COSMOSDB_RESOURCE_GROUP:-$ResourceGroup}"
+        
+        # Get Cosmos DB account scope
+        cosmosDbScope=$(az cosmosdb show --resource-group "$cosmosDbResourceGroup" --name "$cosmosDbAccount" --query "id" -o tsv)
+        if [ $? -eq 0 ] && [ -n "$cosmosDbScope" ]; then
+            # Assign Cosmos DB Built-in Data Contributor role (role definition ID: 00000000-0000-0000-0000-000000000002)
+            cosmosDbRoleDefinitionId="$cosmosDbScope/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+            az cosmosdb sql role assignment create --resource-group "$cosmosDbResourceGroup" --account-name "$cosmosDbAccount" --role-definition-id "$cosmosDbRoleDefinitionId" --principal-id "$slotPrincipalId" --scope "$cosmosDbScope"
+            if [ $? -eq 0 ]; then
+                echo "Successfully assigned Cosmos DB Built-in Data Contributor role."
+            else
+                echo "Warning: Failed to assign Cosmos DB Built-in Data Contributor role. Continuing..."
+            fi
+        else
+            echo "Warning: Could not find Cosmos DB account '$cosmosDbAccount'. Skipping Cosmos DB role assignment."
+        fi
+    else
+        echo "Cosmos DB not configured or chat history not enabled. Skipping Cosmos DB role assignment."
+    fi
 else
     echo "Slot '$SlotName' already exists."
 fi
