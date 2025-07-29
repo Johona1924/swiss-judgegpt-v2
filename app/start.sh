@@ -6,7 +6,24 @@ cd "${0%/*}" || exit 1
 
 cd ../
 echo 'Creating python virtual environment ".venv"'
-python3 -m venv .venv
+
+# Prefer python3.11, then fall back to python, then python3
+if command -v python3.11 >/dev/null 2>&1; then
+    pythonCmd="python3.11"
+elif command -v python3 >/dev/null 2>&1; then
+    pythonCmd="python3"
+elif command -v python >/dev/null 2>&1; then
+    pythonCmd="python"
+else
+    echo "No suitable Python installation found (expected python3.11, python3, or python)"
+    exit 1
+fi
+
+# Show the Python interpreter and version selected
+echo "Using Python interpreter: $(command -v $pythonCmd)"
+$pythonCmd -c "import sys; print('Python version:', sys.version)"
+
+$pythonCmd -m venv .venv
 
 echo ""
 echo "Restoring backend python packages"

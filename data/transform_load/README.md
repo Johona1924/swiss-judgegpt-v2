@@ -1,137 +1,249 @@
-# Document Transformation and Blob Loading Pipeline
+# Document Transformation Pipeline
 
-Modular system for transforming documents and uploading them to Azure Blob Storage. Built for BGer judgment documents but extensible for other document types. **Features robust batch upload with concurrent processing and retry logic.**
+A lean, streamlined system for transforming documents and uploading them to Azure Blob Storage.
+All parameters must be provided via command line arguments - no interactive mode.
 
-## 🚀 Key Features
+## Project Structure
 
-- **Batch Upload**: Concurrent uploads with configurable batch size and thread pool
-- **Retry Logic**: Automatic retry with exponential backoff for failed uploads
-- **Progress Tracking**: Real-time progress bars and comprehensive statistics
-- **Error Resilience**: Failed uploads don't stop the entire batch
-- **Configurable**: Centralized configuration with CLI overrides
-- **Extensible**: Easy to add new transformers and document types
-
-## Quick Start
-
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Configure transformers in `config.json`:**
-   ```json
-   {
-     "transformers": {
-       "published_bger": { "description": "BGer judgments" },
-       "published_bger_trilingual": { "description": "BGer trilingual" }
-     },
-     "blob_storage": {
-       "batch_size": 50,
-       "max_workers": 10,
-       "retry_attempts": 3
-     }
-   }
-   ```
-
-3. **Run:**
-   ```bash
-   # Interactive mode
-   python main.py
-   
-   # Batch mode with concurrent uploads
-   python main.py --batch --transformer published_bger_trilingual \
-     --connection-string "..." --container judgments --folder ./data
-   ```
-
-## Batch Upload Configuration
-
-### Default Settings (config.json)
-```json
-{
-  "blob_storage": {
-    "batch_size": 50,        // Files processed concurrently
-    "max_workers": 10,       // Thread pool size
-    "retry_attempts": 3,     // Max retries per file
-    "retry_delay_base": 2,   // Exponential backoff base
-    "upload_timeout": 300    // Upload timeout in seconds
-  }
-}
 ```
-
-### CLI Overrides
-```bash
-python main.py --batch \
-  --batch-size 100 \
-  --max-workers 20 \
-  --max-retries 5 \
-  --transformer published_bger_trilingual \
-  --connection-string "..." \
-  --container judgments \
-  --folder ./data
+transform_load/
+├── main.py                     # CLI interface and orchestration
+├── load_to_blob.py            # Azure Blob Storage upload logic
+├── requirements.txt           # Dependencies
+├── README.md                  # This file
+├── core/
+│   └── types.py              # Protocol definitions and utilities
+├── transformers/
+│   ├── __init__.py           # Transformer registry
+│   ├── published_bger.py     # BGer judgment transformer (monolingual)
+│   └── published_bger_trilingual.py  # BGer transformer (trilingual)
+└── schemas/
+    ├── published_bger.py     # JSON schema for BGer judgments
+    └── published_bger_trilingual.py  # JSON schema for trilingual BGer
 ```
 
 ## Usage
 
-### Interactive Mode
-```bash
-python main.py
-```
-Prompts for transformer selection and Azure Storage details.
+All arguments are required and must be provided via command line.
+**Note**: The system will always ask for confirmation before uploading files, showing you exactly what will be processed and where it will be uploaded.
 
-### Batch Mode
 ```bash
-python main.py --batch \
-  --transformer published_bger_trilingual \
-  --connection-string "DefaultEndpointsProtocol=https;..." \
-  --container judgments \
-  --folder ./data/md_files \
-  --range "0:100"
+# Basic usage
+python main.py \
+    --transformer published_bger_trilingual \
+    --connection-string "DefaultEndpointsProtocol=https;AccountName=..." \
+    --container judgments \
+    --folder ./data/md_files
+
+# With custom batch settings and file range
+python main.py \
+    --transformer published_bger \
+    --connection-string "DefaultEndpointsProtocol=https;..." \
+    --container judgments \
+    --folder ./data \
+    --range "0:100" \
+    --batch-size 50 \
+    --max-workers 10 \
+    --max-retries 5
+
+# Use individual uploads instead of batch processing
+python main.py \
+    --transformer published_bger \
+    --connection-string "..." \
+    --container judgments \
+    --folder ./data \
+    --individual-uploads
+
+# Skip JSON schema validation (for troubleshooting)
+python main.py \
+    --transformer published_bger \
+    --connection-string "..." \
+    --container judgments \
+    --folder ./data \
+    --skip-validation
 ```
 
-**Options:**
-- `--transformer`: Name from config.json
-- `--connection-string`: Azure Storage connection
+### Confirmation Step
+
+Before any files are processed or uploaded, you'll see a summary like this:
+
+```
+📋 Upload Summary:
+   📁 Source folder: ./data/md_files
+   ☁️  Target container: judgments
+   📄 Files to process: 127
+   🔧 Upload method: Batch upload
+   📝 First 5 files:
+      - 81 II 117.md
+      - 82 I 45.md
+      - 83 III 298.md
+      - 84 II 156.md
+      - 85 I 289.md
+      ... and 122 more files
+
+⚠️  This will upload 127 files to Azure Blob Storage.
+Do you want to proceed? (yes/no):
+```
+
+Type `yes` or `y` to proceed, anything else will cancel the operation.
+
+## Command Line Options
+
+### Required Arguments
+- `--transformer`: Name of transformer to use (`published_bger` or `published_bger_trilingual`)
+- `--connection-string`: Azure Storage connection string
 - `--container`: Blob container name
-- `--folder`: Local folder with files
-- `--range`: Optional range (e.g., `"100:200"`, `":100"`, `"100:"`)
-- `--config`: Custom config file path
+- `--folder`: Local folder containing files to process
 
-## Adding Custom Transformers
+### Optional Arguments
+- `--range`: File range specification (e.g., `100:200`, `:100`, `100:`)
+- `--batch-size`: Number of files per batch (default: 10)
+- `--max-workers`: Concurrent upload threads (default: 5)
+- `--max-retries`: Retry attempts for failed uploads (default: 3)
+- `--individual-uploads`: Use individual uploads instead of batch processing
+- `--skip-validation`: Skip JSON schema validation before upload (for troubleshooting)
 
-### 1. Create Transformer Class
-```python
-# my_transformer.py
-from base_transformers import BaseDocumentTransformer
+## JSON Schema Validation
 
-class MyTransformer(BaseDocumentTransformer):
-    def transform_document(self, content: str, filename: str) -> Dict[str, Any]:
-        return {"title": "...", "content": content}
-    
-    def get_output_filename(self, input_filename: str) -> str:
-        return input_filename.replace(".txt", ".json")
+By default, all transformed documents are validated against their JSON schema before upload:
+
+- **Automatic validation**: Documents are checked against the transformer's schema
+- **Detailed error reporting**: Shows exactly which fields failed validation
+- **Upload prevention**: Invalid documents are not uploaded to prevent data corruption
+- **Fallback validation**: Basic validation even if schema is missing
+- **Optional skip**: Use `--skip-validation` to bypass validation for troubleshooting
+
+### Validation Process
+
+1. **Transform document**: Apply transformer to input file
+2. **Schema validation**: Check against JSON schema (if available)
+3. **Report issues**: Show validation errors with field details
+4. **Upload decision**: Only valid documents proceed to upload
+
+Example validation error:
 ```
-
-### 2. Add to config.json
-```json
-{
-  "transformers": {
-    "my_transformer": {
-      "description": "My custom transformer"
-    }
-  }
-}
-```
-
-### 3. Update main.py Import Logic
-```python
-elif transformer_name == "my_transformer":
-    from my_transformer import MyTransformer
-    transformer = MyTransformer()
+❌ Validation failed for file: example.md
+   Schema: published_bger_schema
+   Error: 'title' is a required property
+   Error: Additional property 'invalid_field' is not allowed
 ```
 
 ## Available Transformers
 
-- **`published_bger`**: Standard BGer judgments (single language)  
+- **`published_bger`**: Swiss Federal Court (BGer) judgments (monolingual)
 - **`published_bger_trilingual`**: BGer judgments with language-specific content fields
 
-Both transformers expect filenames like `81 II 117.md` and markdown content with metadata.
+## Adding a New Transformer
+
+1. **Create transformer class** in `transformers/my_transformer.py`:
+
+```python
+from core.types import DocumentTransformer, add_common_metadata
+
+class MyTransformer:
+    NAME = "my_transformer"
+    INPUT_EXTENSION = "file-extesion" # e.g. json
+    OUTPUT_EXTENSION = ".json" # has to be .json
+    
+    def transform_document(self, content: str, filename: str) -> dict:
+        document = {
+            "title": content.split('\n')[0],  # First line as title
+            "content": content,
+            "custom_field": "my_value"
+        }
+        output_filename = self.get_output_filename(filename)
+        return add_common_metadata(document, output_filename)
+    
+    def get_output_filename(self, input_filename: str) -> str:
+        return input_filename.replace(self.INPUT_EXTENSION, self.OUTPUT_EXTENSION)
+```
+
+2. **Add schema** in `schemas/my_transformer.py`:
+
+```python
+MY_TRANSFORMER_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "My Document Schema",
+    "type": "object",
+    "required": ["title", "content", "filename", "last_updated"],
+    "properties": {
+        "title": {"type": "string"},
+        "content": {"type": "string"},
+        "filename": {"type": "string"},
+        "last_updated": {"type": "string", "format": "date-time"},
+        "custom_field": {"type": "string"}
+    }
+}
+```
+
+3. **Register in `transformers/__init__.py`**:
+
+```python
+from transformers.my_transformer import MyTransformer
+
+TRANSFORMERS = {
+    "published_bger": PublishedBgerTransformer,
+    "published_bger_trilingual": PublishedBgerTrilingualTransformer,
+    "my_transformer": MyTransformer,  # Add here
+}
+```
+
+4. **Done!** Your transformer is now available via `--transformer my_transformer`.
+
+## Input/Output Examples
+
+### BGer Transformer
+
+**Input**: `81 II 117.md`
+```markdown
+# Beschwerde in Strafsachen gegen Urteil des Obergerichts
+
+- **Jahr**: 2023
+- **Gericht**: Bundesgericht
+
+Full judgment content...
+```
+
+**Output**: `81_II_117.json`
+```json
+{
+  "title": "Beschwerde in Strafsachen gegen Urteil des Obergerichts",
+  "content": "# Beschwerde in Strafsachen...",
+  "filename": "81_II_117.json",
+  "last_updated": "2024-01-15T10:30:00+00:00",
+  "year": "2023-01-01T00:00:00+00:00",
+  "volume_number": 81,
+  "volume_roman": "II",
+  "first_page": 117
+}
+```
+
+### Trilingual BGer Transformer
+
+Same input, but output includes language-specific content fields:
+
+```json
+{
+  "title": "Beschwerde in Strafsachen...",
+  "content_de": "# Beschwerde in Strafsachen...",  // Full content if German
+  "content_fr": "",                                 // Empty if not French  
+  "content_it": "",                                 // Empty if not Italian
+  "language": "de",
+  "filename": "81_II_117.json",
+  "last_updated": "2024-01-15T10:30:00+00:00",
+  ...
+}
+```
+
+## Key Features
+
+- **Streamlined CLI**: All parameters via command line - no interactive prompts
+- **Mandatory confirmation**: Always asks for confirmation before uploading with detailed summary
+- **JSON schema validation**: Automatic validation against transformer schemas before upload
+- **Organized structure**: Clear separation of concerns across folders
+- **Rich schemas**: JSON Schema definitions with examples and validation
+- **Convention over configuration**: Add transformers by implementing protocol and registering
+- **No boilerplate**: Simple protocol with just 2 required methods
+- **Batch processing**: Concurrent uploads with retry logic and progress tracking
+- **Range support**: Process subset of files with range specification
+- **Extensible**: Easy to add new document types and output formats

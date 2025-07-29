@@ -1,78 +1,56 @@
 """
-BGer (Bundesgericht) published judgments transformer.
+BGer (Swiss Federal Court) published judgments transformer.
 
-This module implements document transformation for published BGer judgments
-from markdown format to a structured JSON schema.
+Transforms markdown files like "81 II 117.md" into structured JSON documents.
+
+Input Format:
+- Markdown files (.md) with structured content
+- Filename pattern: "{volume} {roman} {page}.md" (e.g., "81 II 117.md")
+- Content includes case title in first # header and metadata as - **key**: value lists
+
+Output Format:
+- JSON with extracted metadata plus full content
+- Filename converted to underscores: "81_II_117.json"
+
+Example:
+    Input: "81 II 117.md"
+    ```
+    # Beschwerde in Strafsachen gegen Urteil des Obergerichts
+    
+    - **Jahr**: 2023
+    - **Gericht**: Bundesgericht
+    
+    Full judgment content...
+    ```
+    
+    Output: "81_II_117.json"
+    {
+        "title": "Beschwerde in Strafsachen gegen Urteil des Obergerichts",
+        "content": "# Beschwerde in Strafsachen...",
+        "filename": "81_II_117.json",
+        "last_updated": "2024-01-15T10:30:00+00:00",
+        "year": "2023-01-01T00:00:00+00:00",
+        "volume_number": 81,
+        "volume_roman": "II",
+        "first_page": 117
+    }
 """
 
 import re
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from base_transformers import BaseDocumentTransformer, get_default_registry
+from core.types import DocumentTransformer, add_common_metadata
+from schemas.published_bger import PUBLISHED_BGER_SCHEMA
 
 
-class PublishedBgerTransformer(BaseDocumentTransformer):
-    """
-    Transformer for published BGer judgment markdown files.
+class PublishedBgerTransformer:
+    """Transformer for BGer judgment markdown files."""
     
-    Transforms markdown files with names like "81 II 117.md", "116 II 428.md"
-    into structured JSON documents following the BGer schema.
-    """
-    
-    # JSON Schema for validation reference
-    SCHEMA = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "properties": {
-            "title": {
-                "type": "string",
-                "description": "The title of the case, extracted from the first markdown header."
-            },
-            "last_updated": {
-                "type": "string",
-                "format": "ISO 8601",
-                "description": "The timestamp of when the JSON object was last updated, with UTC timezone."
-            },
-            "content": {
-                "type": "string",
-                "description": "The full content of the markdown file."
-            },
-            "filename": {
-                "type": "string",
-                "description": "The name of the file, converted to JSON format, with underscores instead of whitespaces."
-            },
-            "year": {
-                "type": ["string", "null"],
-                "format": "ISO 8601",
-                "description": "Year of the judgment, as extracted from the **year** list entry, with additional Regex."
-            },
-            "volume_number": {
-                "type": ["integer", "null"],
-                "description": "Bandzahl (volume number), without year. Example: 146 for BGE 146 III 63, E. 4.2."
-            },
-            "first_page": {
-                "type": ["integer", "null"],
-                "description": "First page number. Example: 63 for BGE 146 III 63, E. 4.2."
-            },
-            "volume_roman": {
-                "type": ["string", "null"],
-                "enum": ["I", "II", "III", "IV", "V", "IA", "IB"],
-                "description": "Teilband, e.g. III in BGE 146 III 63, E. 4.2."
-            },
-            "unpublished_case": {
-                "type": "string",
-                "description": "Unpublished case indicator"
-            },
-            "language": {
-                "type": "string",
-                "description": "Language of the judgment"
-            }
-        },
-        "required": ["title", "last_updated", "content", "filename"],
-        "additionalProperties": True
-    }
-    
+    NAME = "published_bger"
+    INPUT_EXTENSION = ".md"
+    OUTPUT_EXTENSION = ".json"
+    SCHEMA = PUBLISHED_BGER_SCHEMA
     VALID_ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "IA", "IB"]
     
     def transform_document(self, content: str, filename: str) -> Dict[str, Any]:
@@ -230,24 +208,3 @@ class PublishedBgerTransformer(BaseDocumentTransformer):
         except Exception as e:
             print(f"Error processing year from '{input_str}': {e}")
             return None
-
-
-def main():
-    """Main function for interactive execution."""
-    from load_to_blob import InteractiveBlobLoader
-    
-    print("BGer Published Judgments Transformer")
-    print("=" * 40)
-    
-    # Create transformer and register it
-    transformer = PublishedBgerTransformer()
-    registry = get_default_registry()
-    registry.register_transformer("published_bger", transformer)
-    
-    # Create loader and run interactive processing
-    loader = InteractiveBlobLoader.from_user_input()
-    loader.interactive_process_files(transformer, file_extension=".md")
-
-
-if __name__ == "__main__":
-    main()

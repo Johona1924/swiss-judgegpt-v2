@@ -1,8 +1,8 @@
 """
-Schema-agnostic Azure Blob Storage loader.
+Azure Blob Storage loader for document transformation pipeline.
 
 This module provides utilities for uploading JSON documents to Azure Blob Storage
-with support for batch processing, range selection, and progress tracking.
+with support for batch processing, range selection, progress tracking, and JSON schema validation.
 """
 
 import os
@@ -11,13 +11,23 @@ import traceback
 import time
 import concurrent.futures
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Protocol, Callable, Tuple
-from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError, AzureError
 from tqdm import tqdm
+
+try:
+    from jsonschema import validate, ValidationError, Draft7Validator
+    JSONSCHEMA_AVAILABLE = True
+except ImportError:
+    JSONSCHEMA_AVAILABLE = False
+    ValidationError = Exception  # Fallback for type hints
+    Draft7Validator = None  # Fallback for type hints
+
+from core.types import DocumentTransformer
+from core.validation import validate_document, ValidationResult
 
 
 @dataclass
@@ -43,22 +53,10 @@ class BatchUploadStats:
         return (self.successful_uploads / self.total_files) * 100 if self.total_files > 0 else 0
 
 
-class DocumentTransformer(Protocol):
-    """Protocol for document transformation functions."""
-    
-    def transform_document(self, content: str, filename: str) -> Dict[str, Any]:
-        """Transform raw document content to JSON object."""
-        ...
-    
-    def get_output_filename(self, input_filename: str) -> str:
-        """Get the output filename for the transformed document."""
-        ...
-
-
 class BlobLoader:
     """
-    Schema-agnostic loader for uploading JSON documents to Azure Blob Storage.
-    Supports both individual and batch upload operations with retry logic.
+    Loader for uploading JSON documents to Azure Blob Storage.
+    Supports batch upload operations with retry logic and progress tracking.
     """
     
     def __init__(
@@ -85,7 +83,6 @@ class BlobLoader:
         self.max_retries = max_retries
         self.max_workers = max_workers
         self._container_client = None
-        self._container_created_logged = False
     
     @property
     def container_client(self):
@@ -101,11 +98,9 @@ class BlobLoader:
         
         try:
             container.create_container()
-            if not self._container_created_logged:
-                print(f"Created container '{self.container_name}'")
-                self._container_created_logged = True
+            print(f"Created container '{self.container_name}'")
         except ResourceExistsError:
-            # Container already exists - no need to log this repeatedly
+            # Container already exists
             pass
         
         return container
@@ -249,8 +244,8 @@ class BlobLoader:
         transformer: DocumentTransformer,
         file_extension: str = ".md",
         file_range: Optional[str] = None,
-        ask_confirmation: bool = False,
-        use_batch_upload: bool = True
+        use_batch_upload: bool = True,
+        validate_schema: bool = True
     ) -> BatchUploadStats:
         """
         Process files from a local folder and upload them to blob storage.
@@ -260,24 +255,33 @@ class BlobLoader:
             transformer: Document transformer implementing the DocumentTransformer protocol
             file_extension: File extension to filter by (default: ".md")
             file_range: Range specification like "100:200", ":100", "100:", or None for all
-            ask_confirmation: Whether to ask for user confirmation before processing
             use_batch_upload: Whether to use batch upload (True) or individual uploads (False)
+            validate_schema: Whether to validate documents against JSON schema before upload
             
         Returns:
             BatchUploadStats with upload statistics
         """
         try:
             self._validate_local_folder(local_folder, file_extension)
-            
             files = self._get_files_in_range(local_folder, file_extension, file_range)
             
-            if ask_confirmation:
-                self._ask_user_confirmation(files, local_folder)
+            # Validate transformer schema availability upfront if validation is enabled
+            if validate_schema:
+                self._validate_transformer_schema_available(transformer)
+            
+            # Show upload details and ask for confirmation
+            self._ask_upload_confirmation(files, local_folder)
+            
+            print(f"🚀 Starting processing of {len(files)} files...")
+            if validate_schema:
+                print("🔍 Schema validation: ENABLED")
+            else:
+                print("⚠️  Schema validation: DISABLED")
             
             if use_batch_upload:
-                return self._process_files_batch(files, local_folder, transformer)
+                return self._process_files_batch(files, local_folder, transformer, validate_schema)
             else:
-                return self._process_files_individual(files, local_folder, transformer)
+                return self._process_files_individual(files, local_folder, transformer, validate_schema)
             
         except Exception as e:
             print(f"ERROR during processing: {e}")
@@ -329,19 +333,109 @@ class BlobLoader:
         
         return filtered_files
     
-    def _ask_user_confirmation(self, files: List[str], local_folder: str) -> None:
-        """Ask user for confirmation before processing."""
-        print(f"You are about to process {len(files)} files from '{local_folder}'.")
+    def _validate_transformer_schema_available(self, transformer: DocumentTransformer) -> None:
+        """
+        Validate that transformer has a valid JSON schema when validation is required.
+        
+        Args:
+            transformer: Transformer that should have a schema
+            
+        Raises:
+            ValueError: If no schema is available or schema is invalid when validation is required
+        """
+        transformer_name = getattr(transformer, 'NAME', transformer.__class__.__name__)
+        
+        # Check if transformer has SCHEMA attribute
+        if not hasattr(transformer, 'SCHEMA') or not transformer.SCHEMA:
+            raise ValueError(
+                f"❌ Schema validation is enabled but transformer '{transformer_name}' "
+                f"has no SCHEMA attribute or it's empty.\n"
+                f"   To fix this:\n"
+                f"   • Add a SCHEMA attribute to the transformer class, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )
+        
+        # Check if jsonschema library is available
+        if not JSONSCHEMA_AVAILABLE:
+            raise ValueError(
+                f"❌ Schema validation is enabled but 'jsonschema' library is not installed.\n"
+                f"   To fix this:\n"
+                f"   • Install jsonschema: pip install jsonschema, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )
+        
+        # Validate that the schema itself is a valid JSON schema
+        try:
+            Draft7Validator.check_schema(transformer.SCHEMA)
+        except Exception as e:
+            raise ValueError(
+                f"❌ Schema validation is enabled but transformer '{transformer_name}' "
+                f"has an invalid JSON schema.\n"
+                f"   Schema error: {str(e)}\n"
+                f"   To fix this:\n"
+                f"   • Fix the SCHEMA attribute in the transformer class, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )
+    
+    def _validate_document_schema(self, document: Dict[str, Any], transformer: DocumentTransformer, filename: str) -> bool:
+        """
+        Validate document against transformer's schema.
+        
+        Args:
+            document: Document to validate
+            transformer: Transformer that created the document
+            filename: Original filename for error reporting
+            
+        Returns:
+            True if valid, False if validation fails
+            
+        Note:
+            This method assumes schema availability has already been checked
+            by _validate_transformer_schema_available when validation is enabled.
+        """
+        schema = transformer.SCHEMA
+        validation_result = validate_document(document, schema)
+        
+        if validation_result.is_valid:
+            return True
+        
+        print(f"❌ Schema validation failed for '{filename}':")
+        for error in validation_result.errors:
+            print(f"   • {error}")
+        
+        return False
+    
+    def _ask_upload_confirmation(self, files: List[str], local_folder: str) -> None:
+        """Ask user for confirmation before processing and uploading."""
+        print(f"\n📋 Upload Summary:")
+        print(f"   📁 Source folder: {local_folder}")
+        print(f"   ☁️  Target container: {self.container_name}")
+        print(f"   📄 Files to process: {len(files)}")
+        print(f"   🔧 Upload method: {'Batch upload' if self.batch_size > 1 else 'Individual upload'}")
+        
+        if len(files) <= 10:
+            print(f"   📝 File list:")
+            for file in files:
+                print(f"      - {file}")
+        else:
+            print(f"   📝 First 5 files:")
+            for file in files[:5]:
+                print(f"      - {file}")
+            print(f"      ... and {len(files) - 5} more files")
+        
+        print(f"\n⚠️  This will upload {len(files)} files to Azure Blob Storage.")
         confirm = input("Do you want to proceed? (yes/no): ").strip().lower()
-        if confirm != "yes":
-            print("Operation canceled by the user.")
+        
+        if confirm not in ["yes", "y"]:
+            print("❌ Operation cancelled by user.")
             raise SystemExit(0)
     
     def _process_files_batch(
         self, 
         files: List[str], 
         local_folder: str, 
-        transformer: DocumentTransformer
+        transformer: DocumentTransformer,
+        validate_schema: bool = True
     ) -> BatchUploadStats:
         """Process and batch upload files using the provided transformer."""
         print(f"Processing {len(files)} files in batches of {self.batch_size}...")
@@ -370,12 +464,17 @@ class BlobLoader:
                             sep="T", timespec="seconds"
                         )
                         
+                        # Validate against schema if requested
+                        if validate_schema and not self._validate_document_schema(json_obj, transformer, filename):
+                            print(f"⚠️  Skipping '{filename}' due to validation errors")
+                            continue
+                        
                         # Serialize to JSON
                         json_str = json.dumps(json_obj, ensure_ascii=False)
                         documents.append((output_filename, json_str))
                         
                     except Exception as e:
-                        print(f"Error processing file '{filename}': {e}")
+                        print(f"\nError processing file '{filename}': {e}")
                         # Continue with other files
         except KeyboardInterrupt:
             print(f"\n⚠️  Transformation cancelled by user. Processed {len(documents)} files.")
@@ -416,7 +515,8 @@ class BlobLoader:
         self, 
         files: List[str], 
         local_folder: str, 
-        transformer: DocumentTransformer
+        transformer: DocumentTransformer,
+        validate_schema: bool = True
     ) -> BatchUploadStats:
         """Process and upload files individually (legacy mode)."""
         start_time = time.time()
@@ -443,6 +543,11 @@ class BlobLoader:
                     sep="T", timespec="seconds"
                 )
                 
+                # Validate against schema if requested
+                if validate_schema and not self._validate_document_schema(json_obj, transformer, filename):
+                    failed_uploads += 1
+                    continue
+                
                 # Serialize and upload
                 json_str = json.dumps(json_obj, ensure_ascii=False)
                 total_size_bytes += len(json_str.encode('utf-8'))
@@ -465,43 +570,4 @@ class BlobLoader:
             failed_uploads=failed_uploads,
             total_size_mb=total_size_bytes / (1024 * 1024),
             duration_seconds=duration
-        )
-
-
-class InteractiveBlobLoader(BlobLoader):
-    """Interactive version of BlobLoader with command-line prompts."""
-    
-    @classmethod
-    def from_user_input(cls) -> 'InteractiveBlobLoader':
-        """Create BlobLoader instance from user input."""
-        from getpass import getpass
-        
-        connection_string = getpass("Enter your Azure Storage connection string: ").strip(' "')
-        container_name = input("Enter the container name (letters, numbers, hyphens only): ").strip()
-        
-        return cls(connection_string, container_name)
-    
-    def interactive_process_files(
-        self, 
-        transformer: DocumentTransformer,
-        file_extension: str = ".md"
-    ) -> None:
-        """Run interactive file processing with user prompts."""
-        local_folder = input("Enter the path to the local folder: ").strip()
-        
-        range_prompt = (
-            "Enter a range in format:\n"
-            "  <start:end> (e.g., '100:200')\n"
-            "  <:end> (e.g., ':100')\n" 
-            "  <start:> (e.g., '100:')\n"
-            "  or press Enter for full range: "
-        )
-        file_range = input(range_prompt).strip()
-        
-        self.process_and_upload_files(
-            local_folder=local_folder,
-            transformer=transformer,
-            file_extension=file_extension,
-            file_range=file_range or None,
-            ask_confirmation=True
         )
