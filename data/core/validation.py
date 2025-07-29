@@ -5,14 +5,18 @@ This module provides utilities for validating documents against JSON schemas
 before uploading to blob storage.
 """
 
+# IMPORTANT : even though setting a "format" in the schema, the format is currently not validated 
+# by default by the jsonschema validation
+# TODO : implement format validation
+# https://python-jsonschema.readthedocs.io/en/latest/validate/#validating-formats
+
 import json
 from typing import Dict, Any, List, Optional
-try:
-    from jsonschema import validate, ValidationError, Draft7Validator
-    JSONSCHEMA_AVAILABLE = True
-except ImportError:
-    JSONSCHEMA_AVAILABLE = False
 from .types import DocumentProcessor
+from jsonschema import Draft7Validator
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationResult:
@@ -42,14 +46,15 @@ def validate_document(document: Dict[str, Any], schema: Dict[str, Any]) -> Valid
     Returns:
         ValidationResult with validation status and errors
     """
-    if not JSONSCHEMA_AVAILABLE:
-        print("⚠️  Warning: jsonschema not installed. Skipping validation.")
-        return ValidationResult(True)
+
+    print(f"name : {__name__}")
     
     try:
         # Use Draft7Validator for better error messages
         validator = Draft7Validator(schema)
         errors = list(validator.iter_errors(document))
+
+        logger.debug(f"errors : {errors}")
         
         if not errors:
             return ValidationResult(True)
@@ -84,15 +89,6 @@ def validate_processor_schema(processor: DocumentProcessor) -> None:
                 f"has no SCHEMA attribute or it's empty.\n"
                 f"   To fix this:\n"
                 f"   • Add a SCHEMA attribute to the processor class, OR\n"
-                f"   • Use --skip-validation to disable schema validation"
-            )
-        
-        # Check if jsonschema library is available
-        if not JSONSCHEMA_AVAILABLE:
-            raise ValueError(
-                f"❌ Schema validation is enabled but 'jsonschema' library is not installed.\n"
-                f"   To fix this:\n"
-                f"   • Install jsonschema: pip install jsonschema, OR\n"
                 f"   • Use --skip-validation to disable schema validation"
             )
         

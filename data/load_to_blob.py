@@ -21,6 +21,10 @@ from tqdm import tqdm
 from core.types import DocumentProcessor
 from core.validation import validate_document, validate_processor_schema
 
+import logging
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
 
 @dataclass
 class UploadResult:
@@ -90,8 +94,9 @@ class BlobLoader:
         
         try:
             container.create_container()
-            print(f"Created container '{self.container_name}'")
+            logger.info(f"Created container '{self.container_name}'")
         except ResourceExistsError:
+            logger.info(f"Container '{self.container_name}' already exists")
             # Container already exists
             pass
         
@@ -343,6 +348,9 @@ class BlobLoader:
         """
         schema = processor.SCHEMA
         validation_result = validate_document(document, schema)
+
+        # logger.debug(f"document : {document}\n")
+        logger.debug(f"Validation result : {validation_result}")
         
         if validation_result.is_valid:
             return True

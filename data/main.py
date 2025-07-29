@@ -7,11 +7,32 @@ Supports configuration profiles for easier repeated usage.
 
 import sys
 import argparse
+import logging
 from typing import Optional
 
 from load_to_blob import BlobLoader
 from document_processors import get_processor, list_processors
 from config_loader import ConfigLoader, merge_config_with_args
+
+# Configure root logging to see debug messages
+logging.basicConfig(
+    level=logging.WARNING,  # Set root level to WARNING to suppress Azure SDK logs
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Enable DEBUG logging only for your modules
+logging.getLogger('load_to_blob').setLevel(logging.DEBUG)
+logging.getLogger('config_loader').setLevel(logging.DEBUG)
+logging.getLogger('core.validation').setLevel(logging.DEBUG)
+# Note: document_processors modules don't currently use logging
+
+# Suppress noisy Azure SDK loggers
+#logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+#logging.getLogger('azure.storage.blob').setLevel(logging.WARNING)
+#logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
 
 
 def run_processing(
