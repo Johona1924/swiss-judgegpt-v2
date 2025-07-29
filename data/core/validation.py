@@ -8,7 +8,6 @@ before uploading to blob storage.
 import json
 from typing import Dict, Any, List, Optional
 try:
-    import jsonschema
     from jsonschema import validate, ValidationError, Draft7Validator
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
