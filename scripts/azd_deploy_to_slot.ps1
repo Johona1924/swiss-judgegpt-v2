@@ -81,13 +81,70 @@ Are you sure you want to proceed with the deployment? (y/n)
     if ([string]::IsNullOrEmpty($slotExists)) {
         Write-Host "Slot '$SlotName' does not exist. Creating it..."
         az webapp deployment slot create --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --configuration-source "$AppServiceName"
-        # TODO : assign system managed identity, give the following resource-group wide RBAC: Search Index Data Reader, Cognitive Services OpenAI User, Cognitive Services Speech User, Storage Blob Data Reader, Reader. See SYSTEM IDENTITIES in main.bicep
-        # TODO : assign "Cosmos DB Built-in Data Contributor" role to newly created slot. See RBAC in main.bicep
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to create deployment slot."
             exit 1
         }
         Write-Host "Slot '$SlotName' created successfully."
+
+        # Assign system managed identity to the newly created slot
+        Write-Host "Enabling system managed identity for slot '$SlotName'..."
+        az webapp identity assign --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to assign system managed identity to slot."
+            exit 1
+        }
+
+        # Get the principal ID of the slot's managed identity
+        Write-Host "Getting principal ID for slot managed identity..."
+        $slotPrincipalId = az webapp identity show --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --query "principalId" -o tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrEmpty($slotPrincipalId)) {
+            Write-Error "Failed to get principal ID for slot managed identity."
+            exit 1
+        }
+        Write-Host "Slot principal ID: $slotPrincipalId"
+
+        # Assign RBAC roles at resource group level
+        Write-Host "Assigning RBAC roles to slot managed identity..."
+        $roles = @(
+            "1407120a-92aa-4202-b7e9-c0e197c71c8f",  # Search Index Data Reader
+            "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",  # Cognitive Services OpenAI User
+            "f2dc8367-1007-4938-bd23-fe263f013447",  # Cognitive Services Speech User
+            "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1",  # Storage Blob Data Reader
+            "acdd72a7-3385-48ef-bd42-f606fba81ae7"   # Reader
+        )
+
+        foreach ($roleId in $roles) {
+            Write-Host "Assigning role $roleId..."
+            az role assignment create --assignee "$slotPrincipalId" --role "$roleId" --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to assign role $roleId to slot managed identity. Continuing..."
+            }
+        }
+
+        # Assign Cosmos DB Built-in Data Contributor role if Cosmos DB is configured
+        if ($env:AZURE_COSMOSDB_ACCOUNT -and $env:USE_CHAT_HISTORY_COSMOS -eq "true") {
+            Write-Host "Assigning Cosmos DB Built-in Data Contributor role..."
+            $cosmosDbAccount = $env:AZURE_COSMOSDB_ACCOUNT
+            $cosmosDbResourceGroup = if ($env:AZURE_COSMOSDB_RESOURCE_GROUP) { $env:AZURE_COSMOSDB_RESOURCE_GROUP } else { $ResourceGroup }
+            
+            # Get Cosmos DB account scope
+            $cosmosDbScope = az cosmosdb show --resource-group "$cosmosDbResourceGroup" --name "$cosmosDbAccount" --query "id" -o tsv
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrEmpty($cosmosDbScope)) {
+                # Assign Cosmos DB Built-in Data Contributor role (role definition ID: 00000000-0000-0000-0000-000000000002)
+                $cosmosDbRoleDefinitionId = "$cosmosDbScope/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+                az cosmosdb sql role assignment create --resource-group "$cosmosDbResourceGroup" --account-name "$cosmosDbAccount" --role-definition-id "$cosmosDbRoleDefinitionId" --principal-id "$slotPrincipalId" --scope "$cosmosDbScope"
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "Successfully assigned Cosmos DB Built-in Data Contributor role."
+                } else {
+                    Write-Warning "Failed to assign Cosmos DB Built-in Data Contributor role. Continuing..."
+                }
+            } else {
+                Write-Warning "Could not find Cosmos DB account '$cosmosDbAccount'. Skipping Cosmos DB role assignment."
+            }
+        } else {
+            Write-Host "Cosmos DB not configured or chat history not enabled. Skipping Cosmos DB role assignment."
+        }
     } else {
         Write-Host "Slot '$SlotName' already exists."
     }
