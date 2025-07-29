@@ -257,12 +257,12 @@ class BlobLoader:
             self._validate_local_folder(local_folder, file_extension)
             files = self._get_files_in_range(local_folder, file_extension, file_range)
             
+            # Show upload details and ask for confirmation
+            self._ask_upload_confirmation(files, local_folder)
+
             # Validate processor schema availability upfront if validation is enabled
             if validate_schema:
                 validate_processor_schema(processor)
-            
-            # Show upload details and ask for confirmation
-            self._ask_upload_confirmation(files, local_folder)
             
             print(f"🚀 Starting processing of {len(files)} files...")
             if validate_schema:

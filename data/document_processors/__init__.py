@@ -20,7 +20,7 @@ from document_processors.faulty_processor import FaultyProcessor
 PROCESSORS = {
     "published_bger": PublishedBgerProcessor,
     "published_bger_trilingual": PublishedBgerTrilingualProcessor,
-    "faulty_test_processor" : FaultyProcessor
+    "faulty_processor" : FaultyProcessor
 }
 
 def get_processor(name: str) -> Optional[DocumentProcessor]:
@@ -29,7 +29,7 @@ def get_processor(name: str) -> Optional[DocumentProcessor]:
     return processor_class() if processor_class else None
 
 
-def list_processor() -> list[str]:
+def list_processors() -> list[str]:
     """List available processor names."""
     return list(PROCESSORS.keys())
 

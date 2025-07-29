@@ -1,7 +1,7 @@
 # Document Transformation Pipeline
 
 A lean, streamlined system for transforming documents and uploading them to Azure Blob Storage.
-All parameters must be provided via command line arguments - no interactive mode.
+Supports configuration profiles to avoid repeatedly entering connection strings and other parameters.
 
 ## Project Structure
 
@@ -9,10 +9,15 @@ All parameters must be provided via command line arguments - no interactive mode
 transform_load/
 ├── main.py                     # CLI interface and orchestration
 ├── load_to_blob.py            # Azure Blob Storage upload logic
+├── config_loader.py           # Configuration management
+├── configs.yaml               # Configuration profiles
+├── .env                       # Environment variables (gitignored)
+├── .env.example              # Template for .env
 ├── requirements.txt           # Dependencies
 ├── README.md                  # This file
 ├── core/
-│   └── types.py              # Protocol definitions and utilities
+│   ├── types.py              # Protocol definitions and utilities
+│   └── validation.py         # JSON schema validation
 ├── document_processors/
 │   ├── __init__.py           # Processor registry
 │   ├── published_bger.py     # BGer judgment processor (monolingual)
@@ -22,10 +27,41 @@ transform_load/
     └── published_bger_trilingual.py  # JSON schema for trilingual BGer
 ```
 
+## Setup
+
+1. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Configure environment variables**:
+   ```bash
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit .env and add your Azure Storage connection string
+   # AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;..."
+   ```
+
+3. **Optional: Create configuration profiles** (see Configuration section below)
+
 ## Usage
 
-All arguments are required and must be provided via command line.
-**Note**: The system will always ask for confirmation before uploading files, showing you exactly what will be processed and where it will be uploaded.
+### Using Configuration Profiles (Recommended)
+
+Create profiles in `configs.yaml` to avoid repeatedly entering the same parameters:
+
+```bash
+# Use a predefined profile
+python main.py --profile dev --folder ./data/md_files
+
+# Override specific profile settings
+python main.py --profile prod --batch-size 50 --max-workers 10
+```
+
+### Traditional Usage
+
+You can still provide all arguments via command line:
 
 ```bash
 # Basic usage
@@ -45,9 +81,6 @@ python main.py \
     --batch-size 50 \
     --max-workers 10 \
     --max-retries 5
-
-# Use individual uploads instead of batch processing
-python main.py \
     --processor published_bger \
     --connection-string "..." \
     --container judgments \
@@ -87,11 +120,83 @@ Do you want to proceed? (yes/no):
 
 Type `yes` or `y` to proceed, anything else will cancel the operation.
 
+## Configuration
+
+### Configuration Profiles
+
+Create a `configs.yaml` file to define reusable configuration profiles:
+
+```yaml
+# Development profile - for local testing
+dev:
+  processor: "published_bger_trilingual"
+  connection_string: "CONNECTION_STRING_DEV"  # References environment variable
+  container: "judgments-dev"
+  batch_size: 5
+  max_workers: 3
+  max_retries: 2
+
+# Production profile - for live uploads
+production:
+  processor: "published_bger_trilingual"  
+  connection_string: "CONNECTION_STRING_PROD"  # References environment variable
+  container: "judgments"
+  batch_size: 20
+  max_workers: 8
+  max_retries: 3
+
+# Testing profile - small batches for validation
+test:
+  processor: "published_bger"
+  connection_string: "CONNECTION_STRING_TEST"  # References environment variable
+  container: "judgments-test"
+  batch_size: 2
+  max_workers: 1
+  max_retries: 1
+  skip_validation: false
+```
+
+### Environment Variables
+
+Store sensitive information in a `.env` file:
+
+```bash
+# Default Azure Storage connection string
+AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=youraccount;AccountKey=yourkey;EndpointSuffix=core.windows.net"
+
+# Environment-specific connection strings
+CONNECTION_STRING_DEV="DefaultEndpointsProtocol=https;AccountName=devaccount;AccountKey=devkey;EndpointSuffix=core.windows.net"
+CONNECTION_STRING_TEST="DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net"
+CONNECTION_STRING_PROD="DefaultEndpointsProtocol=https;AccountName=prodaccount;AccountKey=prodkey;EndpointSuffix=core.windows.net"
+
+# Default folder path (optional)
+DEFAULT_FOLDER_PATH="./data/md_files"
+```
+
+**Connection String Options:**
+In your profile configuration, you can specify `connection_string` in three ways:
+1. **Environment variable name**: `"CONNECTION_STRING_TEST"` - references an env variable
+2. **Full connection string**: `"DefaultEndpointsProtocol=https;..."` - used directly
+3. **Omit entirely**: Uses `AZURE_STORAGE_CONNECTION_STRING` environment variable
+
+### Priority Order
+
+Configuration values are resolved in this order (later values override earlier ones):
+
+1. Profile configuration (from `configs.yaml`)
+2. Environment variables (from `.env`)
+3. Command line arguments
+
+This means CLI arguments always have the highest priority and can override any profile setting.
+
 ## Command Line Options
 
-### Required Arguments
+### Profile Arguments
+- `--profile`: Configuration profile to use (from `configs.yaml`)
+
+### Required Arguments (when not using profiles)
 - `--processor`: Name of processor to use (`published_bger` or `published_bger_trilingual`)
-- `--connection-string`: Azure Storage connection string
+- `--connection-string`: Azure Storage connection string (can be set via environment variable)
 - `--container`: Blob container name
 - `--folder`: Local folder containing files to process
 

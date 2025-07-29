@@ -2,7 +2,7 @@
 Main orchestrator for document transformation and loading.
 
 Command-line interface for running processors and uploading to Azure Blob Storage.
-All arguments must be provided via command line - no interactive mode.
+Supports configuration profiles for easier repeated usage.
 """
 
 import sys
@@ -11,6 +11,7 @@ from typing import Optional
 
 from load_to_blob import BlobLoader
 from document_processors import get_processor, list_processors
+from config_loader import ConfigLoader, merge_config_with_args
 
 
 def run_processing(
@@ -86,52 +87,54 @@ def run_processing(
 
 def main():
     """Main entry point."""
+    # Load configuration system
+    config_loader = ConfigLoader()
+    
     parser = argparse.ArgumentParser(
         description="Document transformation and blob loading pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 Examples:
-  # Process all files with default settings (includes validation)
+  # Using a configuration profile (recommended)
+  python main.py --profile dev --folder ./data/md_files
+
+  # Override profile settings
+  python main.py --profile prod --batch-size 50 --max-workers 10
+
+  # Traditional usage (all arguments required)
   python main.py --processor published_bger_trilingual \\
     --connection-string "DefaultEndpointsProtocol=https;..." \\
     --container judgments --folder ./data/md_files
 
-  # Process with custom settings and file range
-  python main.py --processor published_bger \\
-    --connection-string "..." --container judgments \\
-    --folder ./data --range "0:100" --batch-size 50 --max-workers 10
-
-  # Skip schema validation (not recommended)
-  python main.py --processor published_bger \\
-    --connection-string "..." --container judgments \\
-    --folder ./data --skip-validation
-
 Available processors: {', '.join(list_processors())}
+Available profiles: {', '.join(config_loader.list_profiles()) if config_loader.list_profiles() else 'None (create configs.yaml)'}
         """
     )
     
-    # Required arguments
+    # Profile argument (optional)
+    parser.add_argument(
+        "--profile",
+        help="Configuration profile to use (from configs.yaml)"
+    )
+    
+    # Required arguments (but optional when using profiles)
     parser.add_argument(
         "--processor",
-        required=True,
         help="Name of processor to use"
     )
     
     parser.add_argument(
         "--connection-string",
-        required=True,
         help="Azure Storage connection string"
     )
     
     parser.add_argument(
         "--container",
-        required=True,
         help="Blob container name"
     )
     
     parser.add_argument(
         "--folder",
-        required=True,
         help="Local folder containing files to process"
     )
     
@@ -176,17 +179,56 @@ Available processors: {', '.join(list_processors())}
     
     args = parser.parse_args()
     
+    # Handle configuration
+    if args.profile:
+        # Load profile configuration
+        try:
+            profile_config = config_loader.get_profile_config(args.profile)
+            print(f"📋 Using profile: {args.profile}")
+        except ValueError as e:
+            print(e)
+            sys.exit(1)
+        
+        # Merge profile config with CLI args
+        final_config = merge_config_with_args(profile_config, args)
+    else:
+        # Traditional mode - convert args to config dict
+        final_config = {
+            "processor": args.processor,
+            "connection_string": args.connection_string,
+            "container": args.container,
+            "folder": args.folder,
+            "range": args.range,
+            "batch_size": args.batch_size,
+            "max_workers": args.max_workers,
+            "max_retries": args.max_retries,
+            "individual_uploads": args.individual_uploads,
+            "skip_validation": args.skip_validation
+        }
+    
+    # Validate required parameters
+    required_params = ["processor", "container", "folder", "connection_string"]
+    missing_params = [param for param in required_params if not final_config.get(param)]
+    
+    if missing_params:
+        print(f"❌ Missing required parameters: {', '.join(missing_params)}")
+        if args.profile:
+            print(f"   Profile '{args.profile}' doesn't provide these values and they weren't specified via CLI")
+        else:
+            print("   Please provide these via command line arguments or use a configuration profile")
+        sys.exit(1)
+    
     run_processing(
-        processor_name=args.processor,
-        connection_string=args.connection_string,
-        container_name=args.container,
-        local_folder=args.folder,
-        file_range=args.range,
-        batch_size=args.batch_size,
-        max_workers=args.max_workers,
-        max_retries=args.max_retries,
-        use_individual_uploads=args.individual_uploads,
-        skip_validation=args.skip_validation
+        processor_name=final_config["processor"],
+        connection_string=final_config["connection_string"],
+        container_name=final_config["container"],
+        local_folder=final_config["folder"],
+        file_range=final_config.get("range"),
+        batch_size=final_config.get("batch_size", 10),
+        max_workers=final_config.get("max_workers", 5),
+        max_retries=final_config.get("max_retries", 3),
+        use_individual_uploads=final_config.get("individual_uploads", False),
+        skip_validation=final_config.get("skip_validation", False)
     )
 
 
