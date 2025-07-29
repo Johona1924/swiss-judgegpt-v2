@@ -1,5 +1,5 @@
 """
-BGer (Swiss Federal Court) published judgments transformer.
+BGer (Swiss Federal Court) published judgments processor.
 
 Transforms markdown files like "81 II 117.md" into structured JSON documents.
 
@@ -40,12 +40,12 @@ import re
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from core.types import DocumentTransformer, add_common_metadata
+from core.types import DocumentProcessor, add_common_metadata
 from schemas.published_bger import PUBLISHED_BGER_SCHEMA
 
 
-class PublishedBgerTransformer:
-    """Transformer for BGer judgment markdown files."""
+class PublishedBgerProcessor(DocumentProcessor):
+    """Processor for BGer judgment markdown files."""
     
     NAME = "published_bger"
     INPUT_EXTENSION = ".md"
@@ -69,12 +69,14 @@ class PublishedBgerTransformer:
         
         # Extract filename-based metadata
         json_obj.update(self._extract_filename_metadata(filename))
+
+        output_filename = self.get_output_filename(input_filename=filename)
         
         # Transform year to ISO format if present
         if "year" in json_obj:
             json_obj["year"] = self._extract_and_format_year(json_obj["year"])
         
-        return json_obj
+        return add_common_metadata(json_obj,filename=output_filename)
     
     def get_output_filename(self, input_filename: str) -> str:
         """Convert input filename to JSON output filename."""

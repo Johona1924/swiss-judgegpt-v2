@@ -1,7 +1,7 @@
 """
-BGer trilingual transformer for Switzerland's three official languages.
+BGer trilingual processor for Switzerland's three official languages.
 
-Same as PublishedBgerTransformer but creates language-specific content fields
+Same as PublishedBgerProcessor but creates language-specific content fields
 for German (de), French (fr), and Italian (it).
 
 Output Format:
@@ -28,17 +28,17 @@ import re
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from core.types import DocumentTransformer, add_common_metadata
+from core.types import DocumentProcessor, add_common_metadata
 from schemas.published_bger_trilingual import PUBLISHED_BGER_TRILINGUAL_SCHEMA
 
 
-class PublishedBgerTrilingualTransformer:
-    """Trilingual BGer transformer with language-specific content fields."""
+class FaultyProcessor(DocumentProcessor):
+    """Trilingual BGer processor with language-specific content fields."""
     
-    NAME = "published_bger_trilingual"
+    NAME = "faulty_processor"
     INPUT_EXTENSION = ".md"
     OUTPUT_EXTENSION = ".json"
-    SCHEMA = PUBLISHED_BGER_TRILINGUAL_SCHEMA
+    SCHEMA = PUBLISHED_BGER_TRILINGUAL_SCHEMA #test schema validation
     VALID_ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "IA", "IB"]
     
     def transform_document(self, content: str, filename: str) -> Dict[str, Any]:
@@ -59,12 +59,14 @@ class PublishedBgerTrilingualTransformer:
         json_obj.update(self._extract_filename_metadata(filename))
 
         json_obj = self._process_language_and_content(json_obj)
+
+        output_filename = self.get_output_filename(input_filename=filename)
         
-        # Transform year to ISO format if present
-        if "year" in json_obj:
-            json_obj["year"] = self._extract_and_format_year(json_obj["year"])
-        
-        return json_obj
+        # TEST : Disable 'Transform year to ISO format if present', to see if schema-validation kicks in (expects date-time format for year)
+        # if "year" in json_obj:
+        #    json_obj["year"] = self._extract_and_format_year(json_obj["year"])
+                
+        return add_common_metadata(json_obj,filename=output_filename)
     
     
     def get_output_filename(self, input_filename: str) -> str:

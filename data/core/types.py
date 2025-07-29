@@ -8,8 +8,8 @@ from typing import Protocol, Dict, Any
 from datetime import datetime, timezone
 
 
-class DocumentTransformer(Protocol):
-    """Simple protocol for document transformers."""
+class DocumentProcessor(Protocol):
+    """Simple protocol for document processors."""
     
     def transform_document(self, content: str, filename: str) -> Dict[str, Any]:
         """Transform raw document to JSON."""

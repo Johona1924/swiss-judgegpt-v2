@@ -1,7 +1,7 @@
 """
 Main orchestrator for document transformation and loading.
 
-Command-line interface for running transformers and uploading to Azure Blob Storage.
+Command-line interface for running processors and uploading to Azure Blob Storage.
 All arguments must be provided via command line - no interactive mode.
 """
 
@@ -10,11 +10,11 @@ import argparse
 from typing import Optional
 
 from load_to_blob import BlobLoader
-from transformers import get_transformer, list_transformers
+from document_processors import get_processor, list_processors
 
 
 def run_processing(
-    transformer_name: str,
+    processor_name: str,
     connection_string: str,
     container_name: str,
     local_folder: str,
@@ -27,14 +27,14 @@ def run_processing(
 ) -> None:
     """Run document processing and upload."""
     
-    # Get transformer
-    transformer = get_transformer(transformer_name)
-    if not transformer:
-        print(f"❌ Error: Transformer '{transformer_name}' not found.")
-        print(f"Available transformers: {', '.join(list_transformers())}")
+    # Get processor
+    processor = get_processor(processor_name)
+    if not processor:
+        print(f"❌ Error: processor '{processor_name}' not found.")
+        print(f"Available processors: {', '.join(list_processors())}")
         sys.exit(1)
     
-    print(f"🔧 Using transformer: {transformer_name}")
+    print(f"🔧 Using processor: {processor_name}")
     print(f"📦 Batch configuration: size={batch_size}, retries={max_retries}, workers={max_workers}")
     print(f"📁 Processing files from: {local_folder}")
     print(f"☁️  Uploading to container: {container_name}")
@@ -52,7 +52,7 @@ def run_processing(
     try:
         stats = loader.process_and_upload_files(
             local_folder=local_folder,
-            transformer=transformer,
+            processor=processor,
             file_extension=".md",
             file_range=file_range,
             use_batch_upload=not use_individual_uploads,
@@ -92,29 +92,29 @@ def main():
         epilog=f"""
 Examples:
   # Process all files with default settings (includes validation)
-  python main.py --transformer published_bger_trilingual \\
+  python main.py --processor published_bger_trilingual \\
     --connection-string "DefaultEndpointsProtocol=https;..." \\
     --container judgments --folder ./data/md_files
 
   # Process with custom settings and file range
-  python main.py --transformer published_bger \\
+  python main.py --processor published_bger \\
     --connection-string "..." --container judgments \\
     --folder ./data --range "0:100" --batch-size 50 --max-workers 10
 
   # Skip schema validation (not recommended)
-  python main.py --transformer published_bger \\
+  python main.py --processor published_bger \\
     --connection-string "..." --container judgments \\
     --folder ./data --skip-validation
 
-Available transformers: {', '.join(list_transformers())}
+Available processors: {', '.join(list_processors())}
         """
     )
     
     # Required arguments
     parser.add_argument(
-        "--transformer",
+        "--processor",
         required=True,
-        help="Name of transformer to use"
+        help="Name of processor to use"
     )
     
     parser.add_argument(
@@ -177,7 +177,7 @@ Available transformers: {', '.join(list_transformers())}
     args = parser.parse_args()
     
     run_processing(
-        transformer_name=args.transformer,
+        processor_name=args.processor,
         connection_string=args.connection_string,
         container_name=args.container,
         local_folder=args.folder,

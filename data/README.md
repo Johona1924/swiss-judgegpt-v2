@@ -13,10 +13,10 @@ transform_load/
 ├── README.md                  # This file
 ├── core/
 │   └── types.py              # Protocol definitions and utilities
-├── transformers/
-│   ├── __init__.py           # Transformer registry
-│   ├── published_bger.py     # BGer judgment transformer (monolingual)
-│   └── published_bger_trilingual.py  # BGer transformer (trilingual)
+├── document_processors/
+│   ├── __init__.py           # Processor registry
+│   ├── published_bger.py     # BGer judgment processor (monolingual)
+│   └── published_bger_trilingual.py  # BGer processor (trilingual)
 └── schemas/
     ├── published_bger.py     # JSON schema for BGer judgments
     └── published_bger_trilingual.py  # JSON schema for trilingual BGer
@@ -30,14 +30,14 @@ All arguments are required and must be provided via command line.
 ```bash
 # Basic usage
 python main.py \
-    --transformer published_bger_trilingual \
+    --processor published_bger_trilingual \
     --connection-string "DefaultEndpointsProtocol=https;AccountName=..." \
     --container judgments \
     --folder ./data/md_files
 
 # With custom batch settings and file range
 python main.py \
-    --transformer published_bger \
+    --processor published_bger \
     --connection-string "DefaultEndpointsProtocol=https;..." \
     --container judgments \
     --folder ./data \
@@ -48,7 +48,7 @@ python main.py \
 
 # Use individual uploads instead of batch processing
 python main.py \
-    --transformer published_bger \
+    --processor published_bger \
     --connection-string "..." \
     --container judgments \
     --folder ./data \
@@ -56,7 +56,7 @@ python main.py \
 
 # Skip JSON schema validation (for troubleshooting)
 python main.py \
-    --transformer published_bger \
+    --processor published_bger \
     --connection-string "..." \
     --container judgments \
     --folder ./data \
@@ -90,7 +90,7 @@ Type `yes` or `y` to proceed, anything else will cancel the operation.
 ## Command Line Options
 
 ### Required Arguments
-- `--transformer`: Name of transformer to use (`published_bger` or `published_bger_trilingual`)
+- `--processor`: Name of processor to use (`published_bger` or `published_bger_trilingual`)
 - `--connection-string`: Azure Storage connection string
 - `--container`: Blob container name
 - `--folder`: Local folder containing files to process
@@ -107,7 +107,7 @@ Type `yes` or `y` to proceed, anything else will cancel the operation.
 
 By default, all transformed documents are validated against their JSON schema before upload:
 
-- **Automatic validation**: Documents are checked against the transformer's schema
+- **Automatic validation**: Documents are checked against the processor's schema
 - **Detailed error reporting**: Shows exactly which fields failed validation
 - **Upload prevention**: Invalid documents are not uploaded to prevent data corruption
 - **Fallback validation**: Basic validation even if schema is missing
@@ -115,7 +115,7 @@ By default, all transformed documents are validated against their JSON schema be
 
 ### Validation Process
 
-1. **Transform document**: Apply transformer to input file
+1. **Transform document**: Apply processor to input file
 2. **Schema validation**: Check against JSON schema (if available)
 3. **Report issues**: Show validation errors with field details
 4. **Upload decision**: Only valid documents proceed to upload
@@ -128,20 +128,20 @@ Example validation error:
    Error: Additional property 'invalid_field' is not allowed
 ```
 
-## Available Transformers
+## Available Processors
 
 - **`published_bger`**: Swiss Federal Court (BGer) judgments (monolingual)
 - **`published_bger_trilingual`**: BGer judgments with language-specific content fields
 
-## Adding a New Transformer
+## Adding a New Processor
 
-1. **Create transformer class** in `transformers/my_transformer.py`:
+1. **Create processor class** in `processors/my_processor.py`:
 
 ```python
-from core.types import DocumentTransformer, add_common_metadata
+from core.types import DocumentProcessor, add_common_metadata
 
-class MyTransformer:
-    NAME = "my_transformer"
+class MyProcessor(DocumentProcessor):
+    NAME = "my_processor"
     INPUT_EXTENSION = "file-extesion" # e.g. json
     OUTPUT_EXTENSION = ".json" # has to be .json
     
@@ -158,10 +158,10 @@ class MyTransformer:
         return input_filename.replace(self.INPUT_EXTENSION, self.OUTPUT_EXTENSION)
 ```
 
-2. **Add schema** in `schemas/my_transformer.py`:
+2. **Add schema** in `schemas/my_processor.py`:
 
 ```python
-MY_TRANSFORMER_SCHEMA = {
+MY_PROCESSOR_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "My Document Schema",
     "type": "object",
@@ -176,23 +176,23 @@ MY_TRANSFORMER_SCHEMA = {
 }
 ```
 
-3. **Register in `transformers/__init__.py`**:
+3. **Register in `processors/__init__.py`**:
 
 ```python
-from transformers.my_transformer import MyTransformer
+from document_processors.my_processor import MyProcessor
 
 TRANSFORMERS = {
-    "published_bger": PublishedBgerTransformer,
-    "published_bger_trilingual": PublishedBgerTrilingualTransformer,
-    "my_transformer": MyTransformer,  # Add here
+    "published_bger": PublishedBgerProcessor,
+    "published_bger_trilingual": PublishedBgerTrilingualProcessor,
+    "my_processor": MyProcessor,  # Add here
 }
 ```
 
-4. **Done!** Your transformer is now available via `--transformer my_transformer`.
+4. **Done!** Your processor is now available via `--processor my_processor`.
 
 ## Input/Output Examples
 
-### BGer Transformer
+### BGer Processor
 
 **Input**: `81 II 117.md`
 ```markdown
@@ -218,7 +218,7 @@ Full judgment content...
 }
 ```
 
-### Trilingual BGer Transformer
+### Trilingual BGer Processor
 
 Same input, but output includes language-specific content fields:
 
@@ -239,10 +239,10 @@ Same input, but output includes language-specific content fields:
 
 - **Streamlined CLI**: All parameters via command line - no interactive prompts
 - **Mandatory confirmation**: Always asks for confirmation before uploading with detailed summary
-- **JSON schema validation**: Automatic validation against transformer schemas before upload
+- **JSON schema validation**: Automatic validation against processor schemas before upload
 - **Organized structure**: Clear separation of concerns across folders
 - **Rich schemas**: JSON Schema definitions with examples and validation
-- **Convention over configuration**: Add transformers by implementing protocol and registering
+- **Convention over configuration**: Add processors by implementing protocol and registering
 - **No boilerplate**: Simple protocol with just 2 required methods
 - **Batch processing**: Concurrent uploads with retry logic and progress tracking
 - **Range support**: Process subset of files with range specification
