@@ -19,6 +19,19 @@ The deployment script performs the following operations:
 7. **Application Deployment**: Deploys the packaged application to the target slot
 8. **Configuration Update**: Sets application settings and startup configuration for the slot
 
+## Assigned Azure Roles
+
+The script automatically assigns the following roles to the slot's managed identity (with role definition IDs):
+
+- **Search Index Data Reader** (`1407120a-92aa-4202-b7e9-c0e197c71c8f`): Access to Azure AI Search indexes
+- **Cognitive Services OpenAI User** (`5e0bd9bd-7b93-4f28-af87-19fc36ad61bd`): Access to Azure OpenAI services
+- **Cognitive Services Speech User** (`f2dc8367-1007-4938-bd23-fe263f013447`): Access to speech services
+- **Storage Blob Data Reader** (`2a2b9908-6ea1-4ae2-8e65-a410df84e7d1`): Read access to Azure Storage blobs
+- **Reader** (`acdd72a7-3385-48ef-bd42-f606fba81ae7`): General read access to resources
+- **Cosmos DB Built-in Data Contributor** (`00000000-0000-0000-0000-000000000002`): Access to Cosmos DB (only if `USE_CHAT_HISTORY_COSMOS=true` and `AZURE_COSMOSDB_ACCOUNT` is configured)
+
+Role assignments are created at the resource group scope, with retry logic for Azure AD propagation delays.
+
 ### Application Settings Source
 App settings are derived from the currently selected azd environment variables (obtained via `azd env get-values`). This includes all environment variables from the active azd environment's `.env` file, plus the `WEBSITE_WEBDEPLOY_USE_SCM=false` setting.
 
@@ -59,19 +72,6 @@ When a new slot is created, settings are copied from production. Manual configur
 
 ### Application Restart
 Restart the app service slot to apply all configuration changes.
-
-## Assigned Azure Roles
-
-The script automatically assigns the following roles to the slot's managed identity (with role definition IDs):
-
-- **Search Index Data Reader** (`1407120a-92aa-4202-b7e9-c0e197c71c8f`): Access to Azure AI Search indexes
-- **Cognitive Services OpenAI User** (`5e0bd9bd-7b93-4f28-af87-19fc36ad61bd`): Access to Azure OpenAI services
-- **Cognitive Services Speech User** (`f2dc8367-1007-4938-bd23-fe263f013447`): Access to speech services
-- **Storage Blob Data Reader** (`2a2b9908-6ea1-4ae2-8e65-a410df84e7d1`): Read access to Azure Storage blobs
-- **Reader** (`acdd72a7-3385-48ef-bd42-f606fba81ae7`): General read access to resources
-- **Cosmos DB Built-in Data Contributor** (`00000000-0000-0000-0000-000000000002`): Access to Cosmos DB (only if `USE_CHAT_HISTORY_COSMOS=true` and `AZURE_COSMOSDB_ACCOUNT` is configured)
-
-Role assignments are created at the resource group scope, with retry logic for Azure AD propagation delays.
 
 ## Details
 
