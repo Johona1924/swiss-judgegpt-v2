@@ -61,7 +61,7 @@ Are you sure you want to proceed with the deployment? (y/n)
     Write-Host "Azure login and subscription are valid."
 
     if (-not $AppServiceName -or -not $ResourceGroup) {
-        Write-Error "AZURE_APP_SERVICE or AZURE_RESOURCE_GROUP environment variables not set. Make sure you have run 'azd provision'."
+        Write-Error "AZURE_APP_SERVICE or AZURE_RESOURCE_GROUP environment variables not set."
         exit 1
     }
 
@@ -116,9 +116,25 @@ Are you sure you want to proceed with the deployment? (y/n)
 
         foreach ($roleId in $roles) {
             Write-Host "Assigning role $roleId..."
-            az role assignment create --assignee "$slotPrincipalId" --role "$roleId" --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warning "Failed to assign role $roleId to slot managed identity. Continuing..."
+            $maxRetries = 3
+            $retryDelay = 10 # seconds
+            $attempt = 0
+            $success = $false
+            while (-not $success -and $attempt -lt $maxRetries) {
+                $output = az role assignment create --assignee "$slotPrincipalId" --role "$roleId" --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $success = $true
+                } elseif ($output -match "Cannot find user or service principal in graph database") {
+                    $attempt++
+                    Write-Warning "Principal not found in Graph. Waiting $retryDelay seconds before retrying ($attempt/$maxRetries)..."
+                    Start-Sleep -Seconds $retryDelay
+                } else {
+                    Write-Warning "Failed to assign role $roleId to slot managed identity. Output: $output"
+                    break
+                }
+            }
+            if (-not $success) {
+                Write-Warning "Failed to assign role $roleId to slot managed identity after $maxRetries attempts. Continuing..."
             }
         }
 
