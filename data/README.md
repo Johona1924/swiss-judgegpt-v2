@@ -39,11 +39,11 @@ transform_load/
    # Copy the example file
    cp .env.example .env
    
-   # Edit .env and add your Azure Storage connection string
-   # AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;..."
+   # Edit .env and add a valid Azure Storage connection string
+   # CONNECTION_STRING_TEST="DefaultEndpointsProtocol=https;..."
    ```
 
-3. **Optional: Create configuration profiles** (see Configuration section below)
+3. **Create configuration profiles** (see Configuration section below)
 
 ## Usage
 
@@ -53,10 +53,10 @@ Create profiles in `configs.yaml` to avoid repeatedly entering the same paramete
 
 ```bash
 # Use a predefined profile
-python main.py --profile dev --folder ./data/md_files
+python main.py --profile dev
 
 # Override specific profile settings
-python main.py --profile prod --batch-size 50 --max-workers 10
+python main.py --profile prod --folder ./raw_data/bger-data --batch-size 50 --max-workers 10
 ```
 
 ### Traditional Usage
@@ -87,7 +87,7 @@ python main.py \
     --folder ./data \
     --individual-uploads
 
-# Skip JSON schema validation (for troubleshooting)
+# Skip JSON schema validation (not recommended)
 python main.py \
     --processor published_bger \
     --connection-string "..." \
@@ -98,25 +98,7 @@ python main.py \
 
 ### Confirmation Step
 
-Before any files are processed or uploaded, you'll see a summary like this:
-
-```
-📋 Upload Summary:
-   📁 Source folder: ./data/md_files
-   ☁️  Target container: judgments
-   📄 Files to process: 127
-   🔧 Upload method: Batch upload
-   📝 First 5 files:
-      - 81 II 117.md
-      - 82 I 45.md
-      - 83 III 298.md
-      - 84 II 156.md
-      - 85 I 289.md
-      ... and 122 more files
-
-⚠️  This will upload 127 files to Azure Blob Storage.
-Do you want to proceed? (yes/no):
-```
+Before any files are processed or uploaded, you'll be asked to confirm.
 
 Type `yes` or `y` to proceed, anything else will cancel the operation.
 
@@ -124,28 +106,10 @@ Type `yes` or `y` to proceed, anything else will cancel the operation.
 
 ### Configuration Profiles
 
-Create a `configs.yaml` file to define reusable configuration profiles:
+Create a `configs.yaml` file to define reusable configuration profiles. Example:
 
 ```yaml
-# Development profile - for local testing
-dev:
-  processor: "published_bger_trilingual"
-  connection_string: "CONNECTION_STRING_DEV"  # References environment variable
-  container: "judgments-dev"
-  batch_size: 5
-  max_workers: 3
-  max_retries: 2
-
-# Production profile - for live uploads
-production:
-  processor: "published_bger_trilingual"  
-  connection_string: "CONNECTION_STRING_PROD"  # References environment variable
-  container: "judgments"
-  batch_size: 20
-  max_workers: 8
-  max_retries: 3
-
-# Testing profile - small batches for validation
+# Testing profile
 test:
   processor: "published_bger"
   connection_string: "CONNECTION_STRING_TEST"  # References environment variable
@@ -161,33 +125,14 @@ test:
 Store sensitive information in a `.env` file:
 
 ```bash
-# Default Azure Storage connection string
-AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=youraccount;AccountKey=yourkey;EndpointSuffix=core.windows.net"
-
 # Environment-specific connection strings
 CONNECTION_STRING_DEV="DefaultEndpointsProtocol=https;AccountName=devaccount;AccountKey=devkey;EndpointSuffix=core.windows.net"
 CONNECTION_STRING_TEST="DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net"
-CONNECTION_STRING_PROD="DefaultEndpointsProtocol=https;AccountName=prodaccount;AccountKey=prodkey;EndpointSuffix=core.windows.net"
-
-# Default folder path (optional)
-DEFAULT_FOLDER_PATH="./data/md_files"
 ```
-
-**Connection String Options:**
-In your profile configuration, you can specify `connection_string` in three ways:
-1. **Environment variable name**: `"CONNECTION_STRING_TEST"` - references an env variable
-2. **Full connection string**: `"DefaultEndpointsProtocol=https;..."` - used directly
-3. **Omit entirely**: Uses `AZURE_STORAGE_CONNECTION_STRING` environment variable
 
 ### Priority Order
 
-Configuration values are resolved in this order (later values override earlier ones):
-
-1. Profile configuration (from `configs.yaml`)
-2. Environment variables (from `.env`)
-3. Command line arguments
-
-This means CLI arguments always have the highest priority and can override any profile setting.
+CLI arguments have the highest priority and can override any profile settings.
 
 ## Command Line Options
 
@@ -215,23 +160,7 @@ By default, all transformed documents are validated against their JSON schema be
 - **Automatic validation**: Documents are checked against the processor's schema
 - **Detailed error reporting**: Shows exactly which fields failed validation
 - **Upload prevention**: Invalid documents are not uploaded to prevent data corruption
-- **Fallback validation**: Basic validation even if schema is missing
 - **Optional skip**: Use `--skip-validation` to bypass validation for troubleshooting
-
-### Validation Process
-
-1. **Transform document**: Apply processor to input file
-2. **Schema validation**: Check against JSON schema (if available)
-3. **Report issues**: Show validation errors with field details
-4. **Upload decision**: Only valid documents proceed to upload
-
-Example validation error:
-```
-❌ Validation failed for file: example.md
-   Schema: published_bger_schema
-   Error: 'title' is a required property
-   Error: Additional property 'invalid_field' is not allowed
-```
 
 ## Available Processors
 
@@ -294,61 +223,3 @@ TRANSFORMERS = {
 ```
 
 4. **Done!** Your processor is now available via `--processor my_processor`.
-
-## Input/Output Examples
-
-### BGer Processor
-
-**Input**: `81 II 117.md`
-```markdown
-# Beschwerde in Strafsachen gegen Urteil des Obergerichts
-
-- **Jahr**: 2023
-- **Gericht**: Bundesgericht
-
-Full judgment content...
-```
-
-**Output**: `81_II_117.json`
-```json
-{
-  "title": "Beschwerde in Strafsachen gegen Urteil des Obergerichts",
-  "content": "# Beschwerde in Strafsachen...",
-  "filename": "81_II_117.json",
-  "last_updated": "2024-01-15T10:30:00+00:00",
-  "year": "2023-01-01T00:00:00+00:00",
-  "volume_number": 81,
-  "volume_roman": "II",
-  "first_page": 117
-}
-```
-
-### Trilingual BGer Processor
-
-Same input, but output includes language-specific content fields:
-
-```json
-{
-  "title": "Beschwerde in Strafsachen...",
-  "content_de": "# Beschwerde in Strafsachen...",  // Full content if German
-  "content_fr": "",                                 // Empty if not French  
-  "content_it": "",                                 // Empty if not Italian
-  "language": "de",
-  "filename": "81_II_117.json",
-  "last_updated": "2024-01-15T10:30:00+00:00",
-  ...
-}
-```
-
-## Key Features
-
-- **Streamlined CLI**: All parameters via command line - no interactive prompts
-- **Mandatory confirmation**: Always asks for confirmation before uploading with detailed summary
-- **JSON schema validation**: Automatic validation against processor schemas before upload
-- **Organized structure**: Clear separation of concerns across folders
-- **Rich schemas**: JSON Schema definitions with examples and validation
-- **Convention over configuration**: Add processors by implementing protocol and registering
-- **No boilerplate**: Simple protocol with just 2 required methods
-- **Batch processing**: Concurrent uploads with retry logic and progress tracking
-- **Range support**: Process subset of files with range specification
-- **Extensible**: Easy to add new document types and output formats
