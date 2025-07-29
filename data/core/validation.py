@@ -13,6 +13,7 @@ try:
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
+from .types import DocumentProcessor
 
 
 class ValidationResult:
@@ -64,27 +65,47 @@ def validate_document(document: Dict[str, Any], schema: Dict[str, Any]) -> Valid
         
     except Exception as e:
         return ValidationResult(False, [f"Validation error: {str(e)}"])
-
-
-def validate_required_fields(document: Dict[str, Any], required_fields: List[str]) -> ValidationResult:
-    """
-    Simple validation for required fields only (fallback when jsonschema not available).
     
-    Args:
-        document: Document to validate
-        required_fields: List of required field names
+def validate_processor_schema(processor: DocumentProcessor) -> None:
+        """
+        Validate that processor has a valid JSON schema when validation is required.
         
-    Returns:
-        ValidationResult with validation status
-    """
-    missing_fields = [field for field in required_fields if field not in document]
-    
-    if not missing_fields:
-        return ValidationResult(True)
-    
-    return ValidationResult(False, [f"Missing required field: {field}" for field in missing_fields])
-
-
-def get_schema_required_fields(schema: Dict[str, Any]) -> List[str]:
-    """Extract required fields from a JSON schema."""
-    return schema.get("required", [])
+        Args:
+            processor: processor that should have a schema
+            
+        Raises:
+            ValueError: If no schema is available or schema is invalid when validation is required
+        """
+        processor_name = getattr(processor, 'NAME', processor.__class__.__name__)
+        
+        # Check if processor has SCHEMA attribute
+        if not hasattr(processor, 'SCHEMA') or not processor.SCHEMA:
+            raise ValueError(
+                f"❌ Schema validation is enabled but processor '{processor_name}' "
+                f"has no SCHEMA attribute or it's empty.\n"
+                f"   To fix this:\n"
+                f"   • Add a SCHEMA attribute to the processor class, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )
+        
+        # Check if jsonschema library is available
+        if not JSONSCHEMA_AVAILABLE:
+            raise ValueError(
+                f"❌ Schema validation is enabled but 'jsonschema' library is not installed.\n"
+                f"   To fix this:\n"
+                f"   • Install jsonschema: pip install jsonschema, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )
+        
+        # Validate that the schema itself is a valid JSON schema
+        try:
+            Draft7Validator.check_schema(processor.SCHEMA)
+        except Exception as e:
+            raise ValueError(
+                f"❌ Schema validation is enabled but processor '{processor_name}' "
+                f"has an invalid JSON schema.\n"
+                f"   Schema error: {str(e)}\n"
+                f"   To fix this:\n"
+                f"   • Fix the SCHEMA attribute in the processor class, OR\n"
+                f"   • Use --skip-validation to disable schema validation"
+            )

@@ -15,19 +15,11 @@ from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
-from azure.core.exceptions import ResourceExistsError, AzureError
+from azure.core.exceptions import ResourceExistsError
 from tqdm import tqdm
 
-try:
-    from jsonschema import validate, ValidationError, Draft7Validator
-    JSONSCHEMA_AVAILABLE = True
-except ImportError:
-    JSONSCHEMA_AVAILABLE = False
-    ValidationError = Exception  # Fallback for type hints
-    Draft7Validator = None  # Fallback for type hints
-
-from core.types import DocumentTransformer
-from core.validation import validate_document, ValidationResult
+from core.types import DocumentProcessor
+from core.validation import validate_document, validate_processor_schema
 
 
 @dataclass
@@ -241,7 +233,7 @@ class BlobLoader:
     def process_and_upload_files(
         self,
         local_folder: str,
-        transformer: DocumentTransformer,
+        processor: DocumentProcessor,
         file_extension: str = ".md",
         file_range: Optional[str] = None,
         use_batch_upload: bool = True,
@@ -252,7 +244,7 @@ class BlobLoader:
         
         Args:
             local_folder: Path to the local folder containing files
-            transformer: Document transformer implementing the DocumentTransformer protocol
+            processor: Document processor implementing the DocumentProcessor protocol
             file_extension: File extension to filter by (default: ".md")
             file_range: Range specification like "100:200", ":100", "100:", or None for all
             use_batch_upload: Whether to use batch upload (True) or individual uploads (False)
@@ -265,9 +257,9 @@ class BlobLoader:
             self._validate_local_folder(local_folder, file_extension)
             files = self._get_files_in_range(local_folder, file_extension, file_range)
             
-            # Validate transformer schema availability upfront if validation is enabled
+            # Validate processor schema availability upfront if validation is enabled
             if validate_schema:
-                self._validate_transformer_schema_available(transformer)
+                validate_processor_schema(processor)
             
             # Show upload details and ask for confirmation
             self._ask_upload_confirmation(files, local_folder)
@@ -279,9 +271,9 @@ class BlobLoader:
                 print("⚠️  Schema validation: DISABLED")
             
             if use_batch_upload:
-                return self._process_files_batch(files, local_folder, transformer, validate_schema)
+                return self._process_files_batch(files, local_folder, processor, validate_schema)
             else:
-                return self._process_files_individual(files, local_folder, transformer, validate_schema)
+                return self._process_files_individual(files, local_folder, processor, validate_schema)
             
         except Exception as e:
             print(f"ERROR during processing: {e}")
@@ -333,57 +325,13 @@ class BlobLoader:
         
         return filtered_files
     
-    def _validate_transformer_schema_available(self, transformer: DocumentTransformer) -> None:
+    def _validate_document_schema(self, document: Dict[str, Any], processor: DocumentProcessor, filename: str) -> bool:
         """
-        Validate that transformer has a valid JSON schema when validation is required.
-        
-        Args:
-            transformer: Transformer that should have a schema
-            
-        Raises:
-            ValueError: If no schema is available or schema is invalid when validation is required
-        """
-        transformer_name = getattr(transformer, 'NAME', transformer.__class__.__name__)
-        
-        # Check if transformer has SCHEMA attribute
-        if not hasattr(transformer, 'SCHEMA') or not transformer.SCHEMA:
-            raise ValueError(
-                f"❌ Schema validation is enabled but transformer '{transformer_name}' "
-                f"has no SCHEMA attribute or it's empty.\n"
-                f"   To fix this:\n"
-                f"   • Add a SCHEMA attribute to the transformer class, OR\n"
-                f"   • Use --skip-validation to disable schema validation"
-            )
-        
-        # Check if jsonschema library is available
-        if not JSONSCHEMA_AVAILABLE:
-            raise ValueError(
-                f"❌ Schema validation is enabled but 'jsonschema' library is not installed.\n"
-                f"   To fix this:\n"
-                f"   • Install jsonschema: pip install jsonschema, OR\n"
-                f"   • Use --skip-validation to disable schema validation"
-            )
-        
-        # Validate that the schema itself is a valid JSON schema
-        try:
-            Draft7Validator.check_schema(transformer.SCHEMA)
-        except Exception as e:
-            raise ValueError(
-                f"❌ Schema validation is enabled but transformer '{transformer_name}' "
-                f"has an invalid JSON schema.\n"
-                f"   Schema error: {str(e)}\n"
-                f"   To fix this:\n"
-                f"   • Fix the SCHEMA attribute in the transformer class, OR\n"
-                f"   • Use --skip-validation to disable schema validation"
-            )
-    
-    def _validate_document_schema(self, document: Dict[str, Any], transformer: DocumentTransformer, filename: str) -> bool:
-        """
-        Validate document against transformer's schema.
+        Validate document against processor's schema.
         
         Args:
             document: Document to validate
-            transformer: Transformer that created the document
+            processor: processor that created the document
             filename: Original filename for error reporting
             
         Returns:
@@ -391,9 +339,9 @@ class BlobLoader:
             
         Note:
             This method assumes schema availability has already been checked
-            by _validate_transformer_schema_available when validation is enabled.
+            by _validate_processor_schema_available when validation is enabled.
         """
-        schema = transformer.SCHEMA
+        schema = processor.SCHEMA
         validation_result = validate_document(document, schema)
         
         if validation_result.is_valid:
@@ -434,10 +382,10 @@ class BlobLoader:
         self, 
         files: List[str], 
         local_folder: str, 
-        transformer: DocumentTransformer,
+        processor: DocumentProcessor,
         validate_schema: bool = True
     ) -> BatchUploadStats:
-        """Process and batch upload files using the provided transformer."""
+        """Process and batch upload files using the provided processor."""
         print(f"Processing {len(files)} files in batches of {self.batch_size}...")
         
         # Transform all files first
@@ -453,19 +401,13 @@ class BlobLoader:
                             content = f.read()
                         
                         # Transform the document
-                        json_obj = transformer.transform_document(content, filename)
+                        json_obj = processor.transform_document(content, filename)
                         
                         # Get output filename
-                        output_filename = transformer.get_output_filename(filename)
-                        
-                        # Add metadata
-                        json_obj["filename"] = output_filename
-                        json_obj["last_updated"] = datetime.now(timezone.utc).isoformat(
-                            sep="T", timespec="seconds"
-                        )
+                        output_filename = processor.get_output_filename(filename)
                         
                         # Validate against schema if requested
-                        if validate_schema and not self._validate_document_schema(json_obj, transformer, filename):
+                        if validate_schema and not self._validate_document_schema(json_obj, processor, filename):
                             print(f"⚠️  Skipping '{filename}' due to validation errors")
                             continue
                         
@@ -515,7 +457,7 @@ class BlobLoader:
         self, 
         files: List[str], 
         local_folder: str, 
-        transformer: DocumentTransformer,
+        processor: DocumentProcessor,
         validate_schema: bool = True
     ) -> BatchUploadStats:
         """Process and upload files individually (legacy mode)."""
@@ -532,10 +474,10 @@ class BlobLoader:
                     content = f.read()
                 
                 # Transform the document
-                json_obj = transformer.transform_document(content, filename)
+                json_obj = processor.transform_document(content, filename)
                 
                 # Get output filename
-                output_filename = transformer.get_output_filename(filename)
+                output_filename = processor.get_output_filename(filename)
                 
                 # Add metadata
                 json_obj["filename"] = output_filename
@@ -544,7 +486,7 @@ class BlobLoader:
                 )
                 
                 # Validate against schema if requested
-                if validate_schema and not self._validate_document_schema(json_obj, transformer, filename):
+                if validate_schema and not self._validate_document_schema(json_obj, processor, filename):
                     failed_uploads += 1
                     continue
                 
