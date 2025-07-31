@@ -50,6 +50,10 @@ The script sets the startup command to `python3 -m gunicorn main:app`, which is 
 .\scripts\azd_deploy_to_slot.ps1 -SlotName "staging"
 ```
 
+```bash
+./Scripts/azd_deploy_to_slot.sh staging
+```
+
 The script operates on the currently active azd environment. Switch environments using `azd env select` if needed.
 
 ## Required Azure Permissions (NOT CONFIRMED YET)
