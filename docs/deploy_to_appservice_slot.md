@@ -66,9 +66,10 @@ To run this script successfully, your Azure account needs the following permissi
 When a new slot is created, settings are copied from production. Manual configuration changes are required:
 
 ### Authentication Settings
-- Change the App (client) ID in Authentication settings, as the copied ID points to the production app
-- Update the client secret in app settings under environment variables `auth0_AUTHENTICATION_SECRET`
-- Ensure the authentication secret is marked as a deployment slot setting (check the slot setting option)
+In the Azure Portal, go to the newly created slot, and go to ...
+- ... Settings -> Authentication : Change the App (client) ID to the ID provided by your Authentication provided (e.g. Auth0). This step is necessary because the ID is by default copied from the production slot during slot creation.
+- ... Settings -> Environment Variables : Create or update the `auth0_AUTHENTICATION_SECRET`environment variable with the App Secret value provided by your Authentication provider (e.g. Auth0). Ensure the authentication secret is marked as a deployment slot setting (check the slot setting option).
+- Go back to Settings -> Authentication -> Edit, and make sure `Client secret setting name` is set to `auth0_AUTHENTICATION_SECRET`.
 
 ### Application Restart
 Restart the app service slot to apply all configuration changes.
