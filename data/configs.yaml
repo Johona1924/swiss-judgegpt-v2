@@ -1,0 +1,17 @@
+# Configuration profiles for document processing pipeline
+# 
+# Usage: python main.py --profile <profile_name> [other args...]
+# CLI arguments always override profile values
+
+# Development profile - for local testing
+
+# Testing profile - small batches for validation
+test:
+  processor: "faulty_processor"
+  container: "test-new-etl"
+  folder: "./raw_data/faulty_data"
+  connection_string_name: "CONNECTION_STRING_TEST"  # References env variable
+  batch_size: 2
+  max_workers: 2
+  max_retries: 1
+  skip_validation: false
