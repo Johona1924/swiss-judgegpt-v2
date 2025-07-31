@@ -1,235 +1,253 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# --- Cleanup ---
+# Ensure we clean up temp files on exit
 cleanup() {
-    echo "Cleaning up temporary files..."
-    if [[ -n "$tempJsonFile" && -f "$tempJsonFile" ]]; then
-        rm -f "$tempJsonFile"
-    fi
-    if [[ -n "$tempPackageFile" && -f "$tempPackageFile" ]]; then
-        rm -f "$tempPackageFile"
-    fi
+  [[ -f "${tempJsonFile:-}" ]]    && rm -f "$tempJsonFile"
+  [[ -f "${tempPackageFile:-}" ]] && rm -f "$tempPackageFile"
+  echo "Cleaned up all temporary files."
 }
 trap cleanup EXIT
 
-# --- Script Start ---
-if [ -z "$1" ]; then
-    echo "Error: The name of the deployment slot is required."
-    echo "Usage: $0 <SlotName>"
-    exit 1
+# Catch any unexpected error
+catch_errors() {
+  echo "Unexpected error: $BASH_COMMAND" >&2
+  exit 1
+}
+trap 'catch_errors' ERR
+
+# Check for required parameter
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <SlotName>"
+  exit 1
 fi
+SlotName="$1"
 
-SlotName=$1
+# Helper: run a CLI command, print success or exit on error
+run_command() {
+  local success_message="$1"; shift
+  local output
+  if ! output=$("$@" 2>&1); then
+    echo "$output" >&2
+    exit 1
+  fi
+  echo "$success_message" >&2
+  echo "$output"
+}
 
-# Create temporary files
-tempJsonFile=$(mktemp)
-tempPackageFile=$(mktemp -u).zip
+# Create temp files
+tempJsonFile=$(mktemp /tmp/XXXXXXXX.json)
+tempPackageFile=$(mktemp /tmp/XXXXXXXX.zip)
 
-# Set working directory to project root
-cd "$(dirname "$0")/.."
+# — Set working directory —
+cd "$(dirname "$0")/.." 
+echo "Working directory set to project root."
 
-# --- Load Environment and Gather Information ---
-echo "Loading azd environment variables..."
-while IFS='=' read -r key value; do
-    # remove quotes from value
-    value="${value%\"}"
-    value="${value#\"}"
+# — Load azd environment —
+azdEnv=$(run_command "Loaded azd environment variables." azd env get-values)
+
+# Parse and export each AZD env var
+declare -A _azd_env
+while IFS= read -r line; do
+  if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    value="${value%\"}"; value="${value#\"}"
     export "$key"="$value"
-done <<< "$(azd env get-values)"
+    _azd_env["$key"]="$value"
+  fi
+done <<< "$azdEnv"
 
-azdEnvName=$AZURE_ENV_NAME
-gitBranchName=$(git rev-parse --abbrev-ref HEAD | tr -d '[:space:]')
-ResourceGroup=$AZURE_RESOURCE_GROUP
-AppServiceName=$AZURE_APP_SERVICE
-SubscriptionId=$AZURE_SUBSCRIPTION_ID
-SubscriptionName=$(az account show --subscription "$SubscriptionId" --query "name" -o tsv)
+# — Gather basic info —
+azdEnvName="$AZURE_ENV_NAME"
+gitBranchName=$(git rev-parse --abbrev-ref HEAD | xargs)
+ResourceGroup="$AZURE_RESOURCE_GROUP"
+AppServiceName="$AZURE_APP_SERVICE"
+SubscriptionId="$AZURE_SUBSCRIPTION_ID"
+SubscriptionName=$(run_command \
+  "Retrieved Azure subscription name." \
+  az account show --subscription "$SubscriptionId" --query name -o tsv)
 
-# --- User Confirmation ---
-echo "Please confirm the following deployment details:"
-echo "- Azd Environment:  $azdEnvName"
-echo "- Git Branch:       $gitBranchName"
-echo "- Subscription:     $SubscriptionName ($SubscriptionId)"
-echo "- Resource Group:   $ResourceGroup"
-echo "- App Service:      $AppServiceName"
-echo "- Target Slot:      $SlotName"
-echo ""
-read -p "Are you sure you want to proceed with the deployment? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Deployment cancelled by user."
-    exit 0
+# — Confirm with user —
+cat <<EOF
+Please confirm the following deployment details:
+- Azd Environment:  $azdEnvName
+- Git Branch:       $gitBranchName
+- Subscription:     $SubscriptionName ($SubscriptionId)
+- Resource Group:   $ResourceGroup
+- App Service:      $AppServiceName
+- Target Slot:      $SlotName
+
+Proceed? (y/n)
+EOF
+read -r confirm
+if [ "$confirm" != "y" ]; then
+  echo "Deployment cancelled by user."
+  exit 0
 fi
 
-# --- Validate Environment ---
-echo "Checking Azure login and subscription..."
-currentSubscription=$(az account show --query "id" -o tsv)
-if [ $? -ne 0 ]; then
-    echo "Error: You are not logged into Azure. Please run 'az login' and try again." >&2
-    exit 1
-fi
+# — Validate login & subscription —
+currentSubscription=$(run_command \
+  "Azure login verified." \
+  az account show --query id -o tsv)
 if [ "$currentSubscription" != "$SubscriptionId" ]; then
-    echo "Error: Logged in to wrong Azure subscription. Please run 'az account set --subscription $SubscriptionId'." >&2
-    exit 1
+  echo "Logged in to wrong subscription ($currentSubscription vs $SubscriptionId)." >&2
+  exit 1
 fi
-echo "Azure login and subscription are valid."
-
 if [ -z "$AppServiceName" ] || [ -z "$ResourceGroup" ]; then
-    echo "Error: AZURE_APP_SERVICE or AZURE_RESOURCE_GROUP environment variables not set. Make sure you have run 'azd provision'." >&2
-    exit 1
+  echo "AZURE_APP_SERVICE or AZURE_RESOURCE_GROUP not set." >&2
+  exit 1
 fi
 
-# --- Package Application ---
-echo "Packaging service backend..."
-azd package backend --output-path "$tempPackageFile"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to package the application. Aborting." >&2
-    exit 1
-fi
-PackagePath=$tempPackageFile
-echo "Application packaged successfully to '$PackagePath'."
+# — Package backend —
+run_command \
+  "Application packaged to '$tempPackageFile'." \
+  azd package backend --output-path "$tempPackageFile"
+PackagePath="$tempPackageFile"
 
-# --- Check/Create Deployment Slot ---
-echo "Checking if slot '$SlotName' exists..."
-slotExists=$(az webapp deployment slot list --resource-group "$ResourceGroup" --name "$AppServiceName" --query "[?name=='$SlotName']" -o tsv)
+# — Check/Create slot —
+slotExists=$(run_command \
+  "Checked for existing slot '$SlotName'." \
+  az webapp deployment slot list \
+    --resource-group "$ResourceGroup" \
+    --name "$AppServiceName" \
+    --query "[?name=='$SlotName']" -o tsv)
+
 if [ -z "$slotExists" ]; then
-    echo "Slot '$SlotName' does not exist. Creating it..."
-    az webapp deployment slot create --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --configuration-source "$AppServiceName"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to create deployment slot." >&2
+  echo "Slot $SlotName does not yet exist. Creating it ..."
+  run_command \
+    "Slot '$SlotName' created." \
+    az webapp deployment slot create \
+      --name "$AppServiceName" \
+      --resource-group "$ResourceGroup" \
+      --slot "$SlotName" \
+      --configuration-source "$AppServiceName" \
+      --output none
+
+  run_command \
+    "Managed identity enabled for slot." \
+    az webapp identity assign \
+      --name "$AppServiceName" \
+      --resource-group "$ResourceGroup" \
+      --slot "$SlotName" \
+      --output none
+
+  slotPrincipalId=$(run_command \
+    "Retrieved slot principal ID." \
+    az webapp identity show \
+      --name "$AppServiceName" \
+      --resource-group "$ResourceGroup" \
+      --slot "$SlotName" \
+      --query principalId -o tsv)
+
+  echo "Assigning RBAC roles..."
+  roles=(
+    1407120a-92aa-4202-b7e9-c0e197c71c8f
+    5e0bd9bd-7b93-4f28-af87-19fc36ad61bd
+    f2dc8367-1007-4938-bd23-fe263f013447
+    2a2b9908-6ea1-4ae2-8e65-a410df84e7d1
+    acdd72a7-3385-48ef-bd42-f606fba81ae7
+  )
+  for roleId in "${roles[@]}"; do
+    attempt=0; maxRetries=3; assigned=false
+    while [ "$assigned" = false ] && [ "$attempt" -lt "$maxRetries" ]; do
+      out=$(MSYS_NO_PATHCONV=1 az role assignment create \
+            --assignee "$slotPrincipalId" \
+            --role "$roleId" \
+            --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup" \
+            --subscription      "$SubscriptionId" \
+            --output none 2>&1) && rc=0 || rc=$?
+      if [ "$rc" -eq 0 ]; then
+        echo "Role $roleId assigned."
+        assigned=true
+      elif [[ "$out" =~ "Cannot find user or service principal in graph database" ]]; then
+        attempt=$((attempt+1))
+        echo "Graph not ready; retrying ($attempt/$maxRetries) in 10s..." >&2
+        sleep 10
+      else
+        echo "Error assigning role ${roleId}: ${out}" >&2
         exit 1
-    fi
-    echo "Slot '$SlotName' created successfully."
-
-    # Assign system managed identity to the newly created slot
-    echo "Enabling system managed identity for slot '$SlotName'..."
-    az webapp identity assign --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to assign system managed identity to slot." >&2
-        exit 1
-    fi
-
-    # Get the principal ID of the slot's managed identity
-    echo "Getting principal ID for slot managed identity..."
-    slotPrincipalId=$(az webapp identity show --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName" --query "principalId" -o tsv)
-    if [ $? -ne 0 ] || [ -z "$slotPrincipalId" ]; then
-        echo "Error: Failed to get principal ID for slot managed identity." >&2
-        exit 1
-    fi
-    echo "Slot principal ID: $slotPrincipalId"
-
-    # Assign RBAC roles at resource group level
-    echo "Assigning RBAC roles to slot managed identity..."
-    roles=(
-        "1407120a-92aa-4202-b7e9-c0e197c71c8f"  # Search Index Data Reader
-        "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"  # Cognitive Services OpenAI User
-        "f2dc8367-1007-4938-bd23-fe263f013447"  # Cognitive Services Speech User
-        "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"  # Storage Blob Data Reader
-        "acdd72a7-3385-48ef-bd42-f606fba81ae7"  # Reader
-    )
-
-    for roleId in "${roles[@]}"; do
-        echo "Assigning role $roleId..."
-        maxRetries=3
-        retryDelay=10  # seconds
-        attempt=0
-        success=false
-        while [ "$success" = false ] && [ $attempt -lt $maxRetries ]; do
-            output=$(az role assignment create --assignee "$slotPrincipalId" --role "$roleId" --scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup" 2>&1)
-            if [ $? -eq 0 ]; then
-                success=true
-            elif echo "$output" | grep -q "Cannot find user or service principal in graph database"; then
-                attempt=$((attempt + 1))
-                echo "Warning: Principal not found in Graph. Waiting $retryDelay seconds before retrying ($attempt/$maxRetries)..."
-                sleep $retryDelay
-            else
-                echo "Warning: Failed to assign role $roleId to slot managed identity. Output: $output"
-                break
-            fi
-        done
-        if [ "$success" = false ]; then
-            echo "Warning: Failed to assign role $roleId to slot managed identity after $maxRetries attempts. Continuing..."
-        fi
+      fi
     done
-
-    # Assign Cosmos DB Built-in Data Contributor role if Cosmos DB is configured
-    if [ -n "$AZURE_COSMOSDB_ACCOUNT" ] && [ "$USE_CHAT_HISTORY_COSMOS" = "true" ]; then
-        echo "Assigning Cosmos DB Built-in Data Contributor role..."
-        cosmosDbAccount="$AZURE_COSMOSDB_ACCOUNT"
-        cosmosDbResourceGroup="${AZURE_COSMOSDB_RESOURCE_GROUP:-$ResourceGroup}"
-        
-        # Get Cosmos DB account scope
-        cosmosDbScope=$(az cosmosdb show --resource-group "$cosmosDbResourceGroup" --name "$cosmosDbAccount" --query "id" -o tsv)
-        if [ $? -eq 0 ] && [ -n "$cosmosDbScope" ]; then
-            # Assign Cosmos DB Built-in Data Contributor role (role definition ID: 00000000-0000-0000-0000-000000000002)
-            cosmosDbRoleDefinitionId="$cosmosDbScope/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-            az cosmosdb sql role assignment create --resource-group "$cosmosDbResourceGroup" --account-name "$cosmosDbAccount" --role-definition-id "$cosmosDbRoleDefinitionId" --principal-id "$slotPrincipalId" --scope "$cosmosDbScope"
-            if [ $? -eq 0 ]; then
-                echo "Successfully assigned Cosmos DB Built-in Data Contributor role."
-            else
-                echo "Warning: Failed to assign Cosmos DB Built-in Data Contributor role. Continuing..."
-            fi
-        else
-            echo "Warning: Could not find Cosmos DB account '$cosmosDbAccount'. Skipping Cosmos DB role assignment."
-        fi
-    else
-        echo "Cosmos DB not configured or chat history not enabled. Skipping Cosmos DB role assignment."
+    if [ "$assigned" != true ]; then
+      echo "Failed to assign role ${roleId} after $maxRetries attempts." >&2
+      exit 1
     fi
+  done
+
+  # — Cosmos DB role (if configured) —
+  if [ -n "${AZURE_COSMOSDB_ACCOUNT:-}" ] && [ "${USE_CHAT_HISTORY_COSMOS:-}" = "true" ]; then
+    cosmosRg="${AZURE_COSMOSDB_RESOURCE_GROUP:-$ResourceGroup}"
+    cosmosScope=$(run_command \
+      "Retrieved Cosmos DB scope." \
+      az cosmosdb show \
+        --resource-group "$cosmosRg" \
+        --name "$AZURE_COSMOSDB_ACCOUNT" \
+        --query id -o tsv)
+    MSYS_NO_PATHCONV=1 run_command \
+      "Cosmos DB Data Contributor role assigned." \
+      az cosmosdb sql role assignment create \
+        --resource-group "$cosmosRg" \
+        --account-name "$AZURE_COSMOSDB_ACCOUNT" \
+        --role-definition-id "$cosmosScope/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002" \
+        --principal-id "$slotPrincipalId" \
+        --subscription      "$SubscriptionId" \
+        --scope "$cosmosScope" \
+        --output none
+  else
+    echo "Skipping Cosmos DB role assignment."
+  fi
+
+  echo "Slot $SlotName was successfully created and assigned system-managed PrincipalId $slotPrincipalId."
+  echo "All necessary Azure roles were assigned."
 else
-    echo "Slot '$SlotName' already exists."
+  echo "Slot '$SlotName' already exists."
 fi
 
-# --- Deploy to Slot ---
-echo "Deploying to slot '$SlotName' in AppService '$AppServiceName'..."
-az webapp deploy --resource-group "$ResourceGroup" --name "$AppServiceName" --src-path "$PackagePath" --slot "$SlotName" --type zip --track-status false
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to deploy webapp to slot." >&2
-    exit 1
-fi
-echo "Deployment to slot initiated. App service will build the package in the background."
+# — Deploy —
+echo "Deploying to slot. This step might take a couple of minutes."
+run_command \
+  "Deployment to '$SlotName' initiated." \
+  az webapp deploy \
+    --resource-group "$ResourceGroup" \
+    --name "$AppServiceName" \
+    --src-path "$PackagePath" \
+    --slot "$SlotName" \
+    --type zip \
+    --track-status false \
+    --output none
 
-# --- Configure Slot Settings ---
-echo "Updating app configuration and app settings for slot '$SlotName'..."
-az webapp config set --startup-file "python3 -m gunicorn main:app" --name "$AppServiceName" --resource-group "$ResourceGroup" --slot "$SlotName"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to set startup file." >&2
-    exit 1
-fi
+# — Startup file —
+run_command \
+  "Startup command configured." \
+  az webapp config set \
+    --startup-file "python3 -m gunicorn main:app" \
+    --name "$AppServiceName" \
+    --resource-group "$ResourceGroup" \
+    --slot "$SlotName" \
+    --output none
 
-# Create a JSON file with all environment variables plus the SCM setting
-json_settings="["
+# — App settings —
+# Build JSON array of settings
+json="["
 first=true
-while IFS='=' read -r key value; do
-    if [ "$first" = false ]; then
-        json_settings+=","
-    fi
-    # remove quotes from value
-    value="${value%\"}"
-    value="${value#\"}"
-    # escape backslashes and double quotes in value for JSON
-    value_escaped=$(echo "$value" | sed -e 's/\/\\/g' -e 's/"/\"/g')
-    json_settings+=$(printf '{"name":"%s","value":"%s","slotSetting":false}' "$key" "$value_escaped")
-    first=false
-done <<< "$(azd env get-values)"
+for key in "${!_azd_env[@]}"; do
+  val=${_azd_env[$key]}
+  if $first; then first=false; else json+=","; fi
+  json+=$'\n  '"{\"name\":\"$key\",\"value\":\"$val\",\"slotSetting\":false}"
+done
+json+=$',\n  {"name":"WEBSITE_WEBDEPLOY_USE_SCM","value":"false","slotSetting":false}\n]'
+echo -e "$json" > "$tempJsonFile"
 
-if [ "$first" = false ]; then
-    json_settings+=","
-fi
-json_settings+=$(printf '{"name":"WEBSITE_WEBDEPLOY_USE_SCM","value":"false","slotSetting":false}')
-json_settings+="]"
+run_command \
+  "App settings applied." \
+  az webapp config appsettings set \
+    --resource-group "$ResourceGroup" \
+    --name "$AppServiceName" \
+    --slot "$SlotName" \
+    --settings "@$tempJsonFile" \
+    --output none
 
-echo "$json_settings" > "$tempJsonFile"
-
-az webapp config appsettings set --resource-group "$ResourceGroup" --name "$AppServiceName" --slot "$SlotName" --settings "@$tempJsonFile"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to set app settings from JSON file." >&2
-    exit 1
-fi
-echo "Successfully updated app configuration and settings."
-
-# --- Final Success Message ---
-echo "------------------------------------------------------------------"
+echo "---------------------------------------------------------------"
 echo "✅ Successfully deployed to slot '$SlotName'."
-echo "------------------------------------------------------------------"
-
-exit 0
+echo "---------------------------------------------------------------"
