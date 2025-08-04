@@ -1,4 +1,6 @@
-# Multilingual Search Support
+# Multilingual Search Support 
+
+
 
 This document describes the multilingual search functionality that allows querying across multiple language-specific content fields in a single Azure AI Search index.
 
@@ -21,10 +23,7 @@ For multilingual search to work, your Azure AI Search index must have:
    - `content_it` for Italian content  
    - `content_fr` for French content
 
-2. **A language field** for filtering, named one of:
-   - `language` (preferred)
-   - `lang`
-   - `locale`
+2. **A language field** for filtering, named `language`, containing the language abbreviation according to ISO 639-1 (e.g. 'en', 'de', 'it', or 'fr').
 
 ### Example Index Schema
 
